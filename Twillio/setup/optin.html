@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UW–Madison Capstone SMS Opt-In</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background-color: #f8f9fa;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+  .container {
+    background-color: white;
+    padding: 25px 30px;
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    max-width: 400px;
+    width: 100%;
+  }
+  h2 {
+    text-align: center;
+    color: #003366;
+  }
+  label {
+    display: block;
+    margin: 15px 0 5px;
+    font-weight: bold;
+  }
+  input[type="text"], input[type="email"] {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    margin-bottom: 15px;
+  }
+  .checkbox-label {
+    font-weight: normal;
+    font-size: 0.9em;
+    margin-bottom: 15px;
+  }
+  button {
+    width: 100%;
+    padding: 12px;
+    background-color: #003366;
+    color: white;
+    font-size: 1em;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  button:hover {
+    background-color: #0055a5;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h2>Fraud Alert SMS Opt-In</h2>
+    <form>
+      <label for="phone">Phone Number</label>
+      <input type="text" id="phone" name="phone" placeholder="e.g. (555) 123-4567" required>
+
+      <label class="checkbox-label">
+        <input type="checkbox" required>
+        I agree to receive SMS notifications for fraud alerts from this University of Wisconsin–Madison Fraud Detection System capstone project. Message & data rates may apply. Reply STOP to opt out of fraud detection alerts.
+      </label>
+
+      <button type="submit">Submit</button>
+    </form>
+  </div>
+</body>
+</html>
