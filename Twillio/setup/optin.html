@@ -42,6 +42,24 @@
     font-size: 0.9em;
     margin-bottom: 15px;
   }
+  .page-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 800px;
+  }
+  .page-header {
+    /* height: 125px;
+    width: 500px;
+    margin: 20px auto; */
+    font-size: 25px;
+    color: red;
+  }
+  .logo {
+    width: 300px;
+    height: auto;
+    margin-bottom: 20px;
+  }
   button {
     width: 100%;
     padding: 12px;
@@ -58,19 +76,28 @@
 </style>
 </head>
 <body>
-  <div class="container">
-    <h2>Fraud Alert SMS Opt-In</h2>
-    <form>
-      <label for="phone">Phone Number</label>
-      <input type="text" id="phone" name="phone" placeholder="e.g. (555) 123-4567" required>
+  <div class="page-wrapper">
+    <!-- <h1 class="page-header">University of Wisconsin-Madison Capstone Fraud Detection System</h1> -->
+    <img src="https://raw.githubusercontent.com/sagore1263/CapitalOneCapstone/refs/heads/main/Twillio/setup/uw-logo-vertical-color-web-digital.png" class="logo"></img>
+    <div class="container">
+      <h2>Fraud Alert SMS Opt-In</h2>
+      <form>
+        <label for="phone">Phone Number</label>
+        <input type="text" id="phone" name="phone" placeholder="e.g. (555) 123-4567" required>
 
-      <label class="checkbox-label">
-        <input type="checkbox" required>
-        I agree to receive SMS notifications for fraud alerts from this University of Wisconsin–Madison Fraud Detection System capstone project. Message & data rates may apply. Reply STOP to opt out of fraud detection alerts.
-      </label>
+        <label class="checkbox-label">
+          <input type="checkbox" required>
+          I agree to receive SMS notifications for fraud alerts from this University of Wisconsin–Madison Capstone Fraud Detection System. Message & data rates may apply. Message frequency varies based on fraud activity and user fraud-alert threshold. Reply HELP for more help, STOP to opt out of fraud detection alerts.
+        </label>
 
-      <button type="submit">Submit</button>
-    </form>
+        <p> 
+          For help, contact <a href="mailto:cap1capstone@gmail.com">cap1captsone@gmail.com</a>
+        </p>
+
+        <button type="submit">Submit</button>
+      </form>
+    </div>
+    <h1 class="page-header">Capstone Fraud Detection System</h1>
   </div>
 </body>
 </html>
