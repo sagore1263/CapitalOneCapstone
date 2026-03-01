@@ -87,9 +87,9 @@ This project is intended to demonstrate:
 
 ## Team Poages Developers:
 
-*Ricky Das
-*Stanley White
-*Swapnil Gore
-*Anirudh Jagannath
-*Jivesh Mehta
-*Kyle Poage
+* Ricky Das
+* Stanley White
+* Swapnil Gore
+* Anirudh Jagannath
+* Jivesh Mehta
+* Kyle Poage
