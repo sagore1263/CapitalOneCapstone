@@ -5,10 +5,10 @@ const app = express();
 app.use(express.json());
 
 
-/**
- * usersById: Map<userId, userObj>
- * userIdByPhone: Map<phone_num, userId>
- */
+
+const txById = new Map();                
+const txIdsByUserId = new Map();         
+const externalIdByUserId = new Map();   
 const usersById = new Map();
 const userIdByPhone = new Map();
 
@@ -95,6 +95,145 @@ app.get("/api/v1/users/:userId", (req, res) => {
   const user = usersById.get(req.params.userId);
   if (!user) return res.status(404).json({ error: "User not found" });
   return res.json(user);
+});
+
+//TRANSACTION ENDPOINTS 
+
+
+// Helpers for tx validation
+function isNonEmptyString(x) {
+  return typeof x === "string" && x.trim().length > 0;
+}
+function isPositiveNumber(x) {
+  return typeof x === "number" && Number.isFinite(x) && x > 0;
+}
+function isIsoTimestamp(x) {
+  return typeof x === "string" && !Number.isNaN(Date.parse(x));
+}
+function isValidCurrency(x) {
+  return typeof x === "string" && /^[A-Z]{3}$/.test(x);
+}
+function isValidPaymentMethod(pm) {
+  if (pm === undefined) return true;
+  if (typeof pm !== "object" || pm === null) return false;
+  return pm.type === "card_present" || pm.type === "online";
+}
+
+
+//Endpoint 4: Post a transaction for specific user
+app.post("/api/v1/users/:userId/transactions", (req, res) => {
+  const { userId } = req.params;
+
+  // If user doesn't exist, treat as not found 
+  const user = usersById.get(userId);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  const {
+    amount,
+    currency,
+    merchant,
+    timestamp,
+    location,
+    payment_method,
+    external_id,
+
+    // Fraud fields NOT settable by this API
+    fraud_score,
+    is_fraud,
+    scored_at,
+    alerted_at,
+  } = req.body ?? {};
+  if (
+    fraud_score !== undefined ||
+    is_fraud !== undefined ||
+    scored_at !== undefined ||
+    alerted_at !== undefined
+  ) {
+    return res.status(400).json({
+      error:
+        "Fraud fields are not settable via this endpoint. Use this API only to add transactions.",
+    });
+  }
+
+  if (!isPositiveNumber(amount)) {
+    return res.status(400).json({ error: "amount must be a number > 0" });
+  }
+
+  const finalCurrency = currency === undefined ? "USD" : currency;
+  if (!isValidCurrency(finalCurrency)) {
+    return res.status(400).json({ error: "currency must be a 3-letter code like USD" });
+  }
+
+  if (!isNonEmptyString(merchant)) {
+    return res.status(400).json({ error: "merchant must be a non-empty string" });
+  }
+
+  if (!isIsoTimestamp(timestamp)) {
+    return res.status(400).json({ error: "timestamp must be a valid date-time string" });
+  }
+
+  if (location !== undefined) {
+    if (typeof location !== "object" || location === null) {
+      return res.status(400).json({ error: "location must be an object" });
+    }
+    // Placeholder: can validate lat/lng ranges later.
+  }
+
+  if (!isValidPaymentMethod(payment_method)) {
+    return res.status(400).json({ error: 'payment_method.type must be "card_present" or "online"' });
+  }
+
+  if (external_id !== undefined && !isNonEmptyString(external_id)) {
+    return res.status(400).json({ error: "external_id must be a non-empty string" });
+  }
+
+  // Placeholder uniqueness: prevent duplicate external_id per user 
+  if (external_id) {
+    if (!externalIdByUserId.has(userId)) externalIdByUserId.set(userId, new Set());
+    const set = externalIdByUserId.get(userId);
+    if (set.has(external_id)) {
+      // Use 409 conflict pattern similar to user creation
+      return res.status(409).json({ error: "external_id already exists for this user" });
+    }
+    set.add(external_id);
+  }
+
+  const txId = crypto.randomUUID();
+  const created_at = new Date().toISOString();
+
+  const tx = {
+    id: txId,                 
+    user_id: userId,         
+    amount,
+    currency: finalCurrency,  // default USD 
+    merchant,
+    timestamp,
+    location: location ?? null,
+    payment_method: payment_method ?? null,
+    external_id: external_id ?? null,
+    created_at,
+    fraud_score: null,
+    is_fraud: null,
+    scored_at: null,
+    alerted_at: null,
+  };
+
+  txById.set(txId, tx);
+  if (!txIdsByUserId.has(userId)) txIdsByUserId.set(userId, []);
+  txIdsByUserId.get(userId).push(txId);
+
+  // Placeholder: later we can publish an event (SQS/SNS) for scoring + alerting
+  // e.g. publishTransactionCreated(tx)
+
+  return res.status(200).json(tx);
+});
+
+
+//ENDPOINT 5: Dev only
+app.get("/api/v1/transactions/:txId", (req, res) => {
+  const tx = txById.get(req.params.txId);
+  if (!tx) return res.status(404).json({ error: "Transaction not found" });
+  return res.json(tx);
 });
 
 
