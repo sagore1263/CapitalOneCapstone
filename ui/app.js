@@ -1,0 +1,262 @@
+const { useState, useEffect, useMemo } = React;
+
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+
+// Mock API (in-memory)
+const mockStore = { users: [], txs: [] };
+const mockApi = {
+  async createUser(payload) {
+    const now = new Date().toISOString();
+    const user = { id: uid(), created_at: now, ...payload, threshold: Number(payload.threshold ?? 0.5) };
+    mockStore.users.push(user);
+    return user;
+  },
+  async listUsers() { return [...mockStore.users]; },
+  async createTransaction(userId, payload) {
+    const now = new Date().toISOString();
+    const tx = { id: uid(), user_id: userId, created_at: now, fraud_score: null, is_fraud: null, ...payload };
+    mockStore.txs.push(tx);
+    return tx;
+  },
+  clear() { mockStore.users = []; mockStore.txs = []; },
+  seed() {
+    this.clear();
+    const samples = [
+      { phone_num: "+15555550111", email: "ada@example.com", threshold: 0.35 },
+      { phone_num: "+15555550222", email: "bruce@example.com", threshold: 0.6 },
+    ];
+    samples.forEach((u) => this.createUser(u));
+  },
+};
+
+// Live API client (fetch)
+const liveApi = (baseUrl) => ({
+  async createUser(payload) {
+    const res = await fetch(`${baseUrl}/users`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+  async listUsers() {
+    const res = await fetch(`${baseUrl}/users`);
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+  async createTransaction(userId, payload) {
+    const res = await fetch(`${baseUrl}/users/${userId}/transactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+});
+
+const toLocalInput = (date = new Date()) => {
+  const pad = (n) => String(n).padStart(2, "0");
+  const d = date;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+function App() {
+  const [useMock, setUseMock] = useState(true);
+  const [baseUrl, setBaseUrl] = useState("http://localhost:3000/api/v1");
+  const [users, setUsers] = useState([]);
+  const [logItems, setLogItems] = useState([]);
+  const [txDefaults] = useState({ timestamp: toLocalInput() });
+
+  const api = useMemo(() => (useMock ? mockApi : liveApi(baseUrl)), [useMock, baseUrl]);
+
+  const log = (message, payload, status = "ok") => {
+    setLogItems((prev) => [
+      { id: uid(), ts: new Date().toLocaleTimeString(), message, payload, status },
+      ...prev.slice(0, 49),
+    ]);
+  };
+
+  const refreshUsers = async () => {
+    try {
+      const list = await api.listUsers();
+      setUsers(list);
+      log("Fetched users", list);
+    } catch (err) {
+      log("Fetch users failed", err.message, "error");
+    }
+  };
+
+  useEffect(() => { refreshUsers(); }, [api]);
+
+  const handleCreateUser = async (payload) => {
+    try {
+      const user = await api.createUser(payload);
+      log("User created", user);
+      refreshUsers();
+    } catch (err) {
+      log("User create failed", err.message, "error");
+    }
+  };
+
+  const handleCreateTx = async (userId, payload) => {
+    try {
+      const tx = await api.createTransaction(userId, payload);
+      log("Transaction submitted", tx);
+    } catch (err) {
+      log("Transaction failed", err.message, "error");
+    }
+  };
+
+  return (
+    <div className="page">
+      <Header useMock={useMock} setUseMock={setUseMock} baseUrl={baseUrl} setBaseUrl={setBaseUrl} />
+      <div className="grid">
+        <Card>
+          <h2>Create Account</h2>
+          <UserForm onSubmit={handleCreateUser} />
+        </Card>
+        <Card>
+          <h2>Submit Transaction</h2>
+          <TxForm users={users} onSubmit={handleCreateTx} defaults={txDefaults} />
+        </Card>
+        <Card>
+          <h2>Activity Log</h2>
+          <p className="muted small">Shows API calls (mock or live) and responses.</p>
+          <Log items={logItems} />
+        </Card>
+      </div>
+      <Playground
+        useMock={useMock}
+        onSeed={() => { mockApi.seed(); refreshUsers(); log("Seeded mock users"); }}
+        onClear={() => { mockApi.clear(); refreshUsers(); log("Cleared mock data"); }}
+      />
+    </div>
+  );
+}
+
+const Header = ({ useMock, setUseMock, baseUrl, setBaseUrl }) => (
+  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", flexWrap: "wrap" }}>
+    <div>
+      <h1>Fraud Detection Prototype</h1>
+      <p className="lead">Create users and submit transactions while the backend is still a stub. Flip between mock data and the live Express API when it’s ready.</p>
+      <div className="pill">UI Mode: React + mockable API</div>
+    </div>
+    <div className="card" style={{ padding: "12px 16px" }}>
+      <div className="inline">
+        <span className="muted small">Mock API</span>
+        <div className={"toggle " + (useMock ? "on" : "")} role="button" aria-label="toggle api mode" onClick={() => setUseMock((v) => !v)}></div>
+        <span className="muted small">Live API</span>
+      </div>
+      <label style={{ marginTop: "12px" }}>Live API base URL</label>
+      <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
+      <p className="muted small" style={{ marginTop: 6 }}>Matches Express stub in <code>api/server.js</code>.</p>
+    </div>
+  </div>
+);
+
+const Playground = ({ useMock, onSeed, onClear }) => (
+  <div className="card" style={{ margin: "16px 0" }}>
+    <div className="row" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+      <div>
+        <label>Data playground</label>
+        <p className="muted small">Active mode: {useMock ? "Mock (in-memory)" : "Live (fetching API)"}</p>
+      </div>
+      <button type="button" onClick={onSeed}>Seed mock data</button>
+      <button type="button" onClick={onClear} style={{ background: "none", color: "var(--text)", border: "1px solid var(--border)", boxShadow: "none" }}>Clear mock data</button>
+    </div>
+  </div>
+);
+
+const Card = ({ children }) => <div className="card">{children}</div>;
+
+function UserForm({ onSubmit }) {
+  const [form, setForm] = useState({ phone_num: "", email: "", threshold: 0.5 });
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); onSubmit({ ...form, email: form.email || undefined }); setForm({ phone_num: "", email: "", threshold: 0.5 }); }}>
+      <label>Phone number (E.164)</label>
+      <input required placeholder="+15555551234" value={form.phone_num} onChange={(e) => setForm({ ...form, phone_num: e.target.value })} />
+      <label>Email (optional)</label>
+      <input type="email" placeholder="name@email.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+      <label>Alert threshold (0 - 1)</label>
+      <input type="range" min="0" max="1" step="0.01" value={form.threshold} onChange={(e) => setForm({ ...form, threshold: Number(e.target.value) })} />
+      <div className="row small" style={{ marginTop: 4 }}>
+        <span className="muted">Current: {form.threshold.toFixed(2)}</span>
+        <span className="muted">Lower = more sensitive</span>
+      </div>
+      <button type="submit">Create User</button>
+    </form>
+  );
+}
+
+function TxForm({ users, onSubmit, defaults }) {
+  const [form, setForm] = useState({
+    user_id: "",
+    amount: "",
+    currency: "USD",
+    merchant: "",
+    timestamp: defaults.timestamp,
+    payment_method: "online",
+    external_id: "",
+  });
+
+  useEffect(() => {
+    if (!form.user_id && users.length) setForm((f) => ({ ...f, user_id: users[0].id }));
+  }, [users]);
+
+  return (
+    <form onSubmit={(e) => {
+      e.preventDefault();
+      if (!form.user_id) return;
+      onSubmit(form.user_id, {
+        amount: Number(form.amount),
+        currency: form.currency || "USD",
+        merchant: form.merchant,
+        timestamp: new Date(form.timestamp).toISOString(),
+        payment_method: { type: form.payment_method },
+        external_id: form.external_id || undefined,
+      });
+      setForm({ ...form, amount: "", merchant: "", external_id: "" });
+    }}>
+      <label>User</label>
+      <select required value={form.user_id} onChange={(e) => setForm({ ...form, user_id: e.target.value })}>
+        <option value="" disabled>Select user</option>
+        {users.map((u) => <option key={u.id} value={u.id}>{u.phone_num} ({u.threshold ?? "?"})</option>)}
+      </select>
+      <label>Amount</label>
+      <input required type="number" min="0.01" step="0.01" placeholder="120.55" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+      <label>Currency</label>
+      <input value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} />
+      <label>Merchant</label>
+      <input required placeholder="Contoso Books" value={form.merchant} onChange={(e) => setForm({ ...form, merchant: e.target.value })} />
+      <label>Timestamp</label>
+      <input required type="datetime-local" value={form.timestamp} onChange={(e) => setForm({ ...form, timestamp: e.target.value })} />
+      <label>Payment method</label>
+      <select value={form.payment_method} onChange={(e) => setForm({ ...form, payment_method: e.target.value })}>
+        <option value="online">Online</option>
+        <option value="card_present">Card present</option>
+      </select>
+      <label>External ID (optional)</label>
+      <input placeholder="ext-123" value={form.external_id} onChange={(e) => setForm({ ...form, external_id: e.target.value })} />
+      <button type="submit">Send Transaction</button>
+    </form>
+  );
+}
+
+const Log = ({ items }) => (
+  <div className="log">
+    {items.length === 0 && <p className="muted small">No events yet.</p>}
+    {items.map((item) => (
+      <div key={item.id} className="log-item">
+        <div className="ts">{item.ts}</div>
+        <div style={{ fontWeight: 600 }}>{item.message}</div>
+        <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", margin: "6px 0 0", fontFamily: "Inter, monospace", fontSize: "0.9rem", color: item.status === "error" ? "#ff9b9b" : "#d6e8ff" }}>
+{JSON.stringify(item.payload, null, 2)}
+        </pre>
+      </div>
+    ))}
+  </div>
+);
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
