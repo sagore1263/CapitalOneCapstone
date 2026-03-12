@@ -129,8 +129,8 @@ function App() {
       </div>
       <Playground
         useMock={useMock}
-        onSeed={() => { mockApi.seed(); refreshUsers(); log("Seeded mock users"); }}
-        onClear={() => { mockApi.clear(); refreshUsers(); log("Cleared mock data"); }}
+        onSeed={() => { mockApi.seed(); refreshUsers(); log("Created sample users"); }}
+        onClear={() => { mockApi.clear(); refreshUsers(); log("Cleared users & mock data"); }}
       />
     </div>
   );
@@ -163,8 +163,8 @@ const Playground = ({ useMock, onSeed, onClear }) => (
         <label>Data playground</label>
         <p className="muted small">Active mode: {useMock ? "Mock (in-memory)" : "Live (fetching API)"}</p>
       </div>
-      <button type="button" onClick={onSeed}>Seed mock data</button>
-      <button type="button" onClick={onClear} style={{ background: "none", color: "var(--text)", border: "1px solid var(--border)", boxShadow: "none" }}>Clear mock data</button>
+      <button type="button" onClick={onSeed}>Create random users</button>
+      <button type="button" onClick={onClear} style={{ background: "none", color: "var(--text)", border: "1px solid var(--border)", boxShadow: "none" }}>Clear users</button>
     </div>
   </div>
 );
@@ -200,6 +200,27 @@ function TxForm({ users, onSubmit, defaults }) {
     payment_method: "online",
     external_id: "",
   });
+
+  const randomTx = () => {
+    if (!users.length) return null;
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const user_id = form.user_id || pick(users).id;
+    const merchants = ["Contoso Books", "Northwind Market", "Globex Gadgets", "Blue Bottle", "ACME Co", "AeroFly"];
+    const methods = ["online", "card_present"];
+    const now = Date.now();
+    const ts = new Date(now - Math.floor(Math.random() * 1000 * 60 * 60 * 24)).toISOString();
+    return {
+      user_id,
+      payload: {
+        amount: Number((Math.random() * 400 + 5).toFixed(2)),
+        currency: "USD",
+        merchant: pick(merchants),
+        timestamp: ts,
+        payment_method: { type: pick(methods) },
+        external_id: Math.random() > 0.6 ? `ext-${uid().slice(0, 6)}` : undefined,
+      },
+    };
+  };
 
   useEffect(() => {
     if (!form.user_id && users.length) setForm((f) => ({ ...f, user_id: users[0].id }));
@@ -239,7 +260,15 @@ function TxForm({ users, onSubmit, defaults }) {
       </select>
       <label>External ID (optional)</label>
       <input placeholder="ext-123" value={form.external_id} onChange={(e) => setForm({ ...form, external_id: e.target.value })} />
-      <button type="submit">Send Transaction</button>
+      <div className="row" style={{ gap: 8 }}>
+        <button type="submit">Send Transaction</button>
+        <button type="button" onClick={() => {
+          const tx = randomTx();
+          if (!tx) return;
+          setForm((prev) => ({ ...prev, user_id: tx.user_id }));
+          onSubmit(tx.user_id, tx.payload);
+        }}>Randomize & Send</button>
+      </div>
     </form>
   );
 }
