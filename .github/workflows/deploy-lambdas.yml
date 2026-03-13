@@ -1,0 +1,68 @@
+name: Deploy Lambdas
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy get_users
+        run: |
+          cd services/lambdas/get_users
+          zip function.zip lambda_function.py
+          aws lambda update-function-code \
+            --function-name GetUsersLambda \
+            --zip-file fileb://function.zip
+
+      - name: Deploy get_user
+        run: |
+          cd services/lambdas/get_user
+          zip function.zip lambda_function.py
+          aws lambda update-function-code \
+            --function-name GetUserLambda \
+            --zip-file fileb://function.zip
+
+      - name: Deploy create_user
+        run: |
+          cd services/lambdas/create_user
+          zip function.zip lambda_function.py
+          aws lambda update-function-code \
+            --function-name CreateUserLambda \
+            --zip-file fileb://function.zip
+
+      - name: Deploy create_transaction
+        run: |
+          cd services/lambdas/create_transaction
+          zip function.zip lambda_function.py
+          aws lambda update-function-code \
+            --function-name CreateTransactionLambda \
+            --zip-file fileb://function.zip
+
+      - name: Deploy get_transaction
+        run: |
+          cd services/lambdas/get_transaction
+          zip function.zip lambda_function.py
+          aws lambda update-function-code \
+            --function-name GetTransactionLambda \
+            --zip-file fileb://function.zip
+
+      - name: Deploy health
+        run: |
+          cd services/lambdas/health
+          zip function.zip lambda_function.py
+          aws lambda update-function-code \
+            --function-name HealthServiceLambda \
+            --zip-file fileb://function.zip
