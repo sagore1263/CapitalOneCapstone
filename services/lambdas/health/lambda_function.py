@@ -8,6 +8,7 @@ def lambda_handler(event, context):
         },
         "body": json.dumps({
             "status": "ok",
+            "body": "Testing deploy",
             "service": "fraud-detection-api"
         })
     }
