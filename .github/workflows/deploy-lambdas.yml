@@ -66,3 +66,11 @@ jobs:
           aws lambda update-function-code \
             --function-name HealthServiceLambda \
             --zip-file fileb://function.zip
+
+      - name: Deploy fraud_lambda
+        run: |
+          cd ml/scripts
+          zip function.zip lambda_function.py
+          aws lambda update-function-code \
+            --function-name fraud-scoring-service \
+            --zip-file fileb://function.zip
