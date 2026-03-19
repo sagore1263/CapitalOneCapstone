@@ -1,39 +1,38 @@
 import json
 import uuid
 import boto3
-from datetime import datetime, timezone
 
 lambda_client = boto3.client("lambda")
 
 FRAUD_LAMBDA_NAME = "fraud-scoring-service"
 
 
-def get_feature_payload(user_id, body):
-    now_utc = datetime.now(timezone.utc)
+def get_transaction_payload(user_id, body):
+  
+    transaction = body.get("transaction", body)
 
-    return {
-        "transactionId": str(uuid.uuid4()),
-        "user_id": user_id,
-        "amount": float(body.get("amount", 0.0)),
-        "hour": int(body.get("hour", now_utc.hour)),
-        "is_international": int(body.get("is_international", 0)),
-        "merchant_risk": float(body.get("merchant_risk", 0.0)),
-        "txn_count_24h": float(body.get("txn_count_24h", 0.0)),
-    }
+    if not isinstance(transaction, dict):
+        raise ValueError("Request body must contain a transaction object")
+
+    enriched_transaction = dict(transaction)
+    enriched_transaction["transactionId"] = str(uuid.uuid4())
+    enriched_transaction["user_id"] = user_id
+
+    return enriched_transaction
 
 
 def invoke_fraud_lambda(transaction):
+    fraud_input = {
+        key: value
+        for key, value in transaction.items()
+        if key not in {"transactionId", "user_id"}
+    }
+
     response = lambda_client.invoke(
         FunctionName=FRAUD_LAMBDA_NAME,
         InvocationType="RequestResponse",
         Payload=json.dumps({
-            "transaction": {
-                "amount": transaction["amount"],
-                "hour": transaction["hour"],
-                "is_international": transaction["is_international"],
-                "merchant_risk": transaction["merchant_risk"],
-                "txn_count_24h": transaction["txn_count_24h"],
-            }
+            "transaction": fraud_input
         }).encode("utf-8")
     )
 
@@ -54,7 +53,7 @@ def lambda_handler(event, context):
         user_id = event.get("pathParameters", {}).get("userId")
         body = json.loads(event.get("body", "{}"))
 
-        transaction = get_feature_payload(user_id, body)
+        transaction = get_transaction_payload(user_id, body)
         fraud_result = invoke_fraud_lambda(transaction)
 
         transaction["prediction_probability"] = fraud_result.get("prediction_probability")
