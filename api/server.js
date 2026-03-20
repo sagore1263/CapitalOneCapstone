@@ -95,13 +95,21 @@ app.get("/api/v1/users", (req, res) => {
 });
 
 
-//Endpoint 3: select user by id
+// Endpoint 3: Get a user by ID
 // GET /api/v1/users/:userId
 app.get("/api/v1/users/:userId", (req, res) => {
-  const user = usersById.get(req.params.userId);
-  if (!user) return res.status(404).json({ error: "User not found" });
-  return res.json(user);
+  const { userId } = req.params;
+  const user = usersById.get(userId);
+
+  if (!user) {
+    return res.status(404).json({
+      error: "User not found",
+    });
+  }
+
+  return res.status(200).json(user);
 });
+
 
 //TRANSACTION ENDPOINTS 
 
