@@ -18,12 +18,12 @@ def is_valid_threshold(threshold):
     try:
         threshold = float(threshold)
     except (ValueError, TypeError):
-        return response(400, {"error": "threshold must be a number"})
+        return False
 
     if not (0 <= threshold <= 1):
-        return response(400, {
-            "error": "threshold must be between 0 and 1"
-        })
+        return False
+    
+    return True
 
 def is_valid_phone_number(phone_number):
     return re.fullmatch(r"^\+[1-9]\d{7,14}$", phone_number)
@@ -36,8 +36,7 @@ def lambda_handler(event, context):
         body = json.loads(event.get("body") or "{}")
     except json.JSONDecodeError:
         return response(400, {"error": "Invalid JSON in request body"})
-
-    phone_number = body.get("phoneNumber")
+    phone_number = body.get("phone_number")
     email = body.get("email")
     threshold = body.get("threshold", "0.5")
     created_at = datetime.now(timezone.utc).isoformat()
@@ -61,9 +60,6 @@ def lambda_handler(event, context):
         return response(400, {
             "error": "Invalid email format"
         })
-
-    if response["Items"]:
-        return response(409, {"error": "User already exists"})
 
     user_item = {
         "userId": str(uuid.uuid4()),
