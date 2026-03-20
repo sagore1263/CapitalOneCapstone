@@ -6,7 +6,7 @@ import re
 def response(status_code, body):
 
     return {
-        "status_code": status_code,
+        "statusCode": status_code,
         "headers": {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*"
