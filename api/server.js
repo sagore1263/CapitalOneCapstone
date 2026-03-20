@@ -83,11 +83,17 @@ app.post("/api/v1/users", (req, res) => {
 });
 
 
-// Endpoint 2: list all users
+// Endpoint 2: List all users
 // GET /api/v1/users
 app.get("/api/v1/users", (req, res) => {
-  return res.json(Array.from(usersById.values()));
+  const users = Array.from(usersById.values());
+
+  return res.status(200).json({
+    count: users.length,
+    users,
+  });
 });
+
 
 //Endpoint 3: select user by id
 // GET /api/v1/users/:userId
