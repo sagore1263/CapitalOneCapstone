@@ -62,6 +62,22 @@ const toLocalInput = (date = new Date()) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+const FRAUD_MERCHANTS = [
+  "ShadowCart Outlet",
+  "Midnight Luxury Goods",
+  "Orbit Ticket Exchange",
+  "Flash Gadget Hub",
+  "Velvet Wire Transfers"
+];
+
+const FRAUD_LOCATIONS = [
+  "Miami, FL",
+  "Las Vegas, NV",
+  "Los Angeles, CA",
+  "New York, NY",
+  "Houston, TX"
+];
+
 function App() {
   const [useMock, setUseMock] = useState(true);
   const [baseUrl, setBaseUrl] = useState("http://localhost:3000/api/v1");
@@ -222,6 +238,29 @@ function TxForm({ users, onSubmit, defaults }) {
     };
   };
 
+  const randomFraudTx = () => {
+    if (!users.length) return null;
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const user_id = form.user_id || pick(users).id;
+    const now = Date.now();
+    const ts = new Date(now - Math.floor(Math.random() * 1000 * 60 * 90)).toISOString();
+    const amount = Number((Math.random() * 4500 + 4500).toFixed(2));
+    const merchant = pick(FRAUD_MERCHANTS);
+    const location = pick(FRAUD_LOCATIONS);
+
+    return {
+      user_id,
+      payload: {
+        amount,
+        currency: "USD",
+        merchant: `${merchant} - ${location}`,
+        timestamp: ts,
+        payment_method: { type: "online" },
+        external_id: `fraud-${uid().slice(0, 8)}`,
+      },
+    };
+  };
+
   useEffect(() => {
     if (!form.user_id && users.length) setForm((f) => ({ ...f, user_id: users[0].id }));
   }, [users]);
@@ -268,6 +307,27 @@ function TxForm({ users, onSubmit, defaults }) {
           setForm((prev) => ({ ...prev, user_id: tx.user_id }));
           onSubmit(tx.user_id, tx.payload);
         }}>Randomize & Send</button>
+        <button
+          type="button"
+          className="danger-button"
+          onClick={() => {
+            const tx = randomFraudTx();
+            if (!tx) return;
+            setForm((prev) => ({
+              ...prev,
+              user_id: tx.user_id,
+              amount: String(tx.payload.amount),
+              currency: tx.payload.currency,
+              merchant: tx.payload.merchant,
+              timestamp: toLocalInput(new Date(tx.payload.timestamp)),
+              payment_method: tx.payload.payment_method.type,
+              external_id: tx.payload.external_id,
+            }));
+            onSubmit(tx.user_id, tx.payload);
+          }}
+        >
+          Generate Fraudulent Transaction
+        </button>
       </div>
     </form>
   );

@@ -69,6 +69,16 @@ button {
 }
 button:hover { transform: translateY(-1px); }
 button:active { transform: translateY(0); }
+
+.danger-button {
+  background: linear-gradient(120deg, #ff8a65, #ff5252);
+  color: #fff7f5;
+  box-shadow: 0 12px 25px rgba(255, 82, 82, 0.22);
+}
+
+.danger-button:hover {
+  box-shadow: 0 14px 28px rgba(255, 82, 82, 0.28);
+}
 .row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
