@@ -25,6 +25,14 @@ def is_valid_threshold(threshold):
     
     return True
 
+def is_valid_card_number(card_number):
+    try:
+        _ = int(card_number)
+    except (ValueError, TypeError):
+        return False
+    
+    return True
+
 def is_valid_phone_number(phone_number):
     return re.fullmatch(r"^\+[1-9]\d{7,14}$", phone_number)
 
@@ -39,9 +47,10 @@ def lambda_handler(event, context):
     phone_number = body.get("phone_number")
     email = body.get("email")
     threshold = body.get("threshold", "0.5")
+    card_number = body.get("card_number")
     created_at = datetime.now(timezone.utc).isoformat()
 
-    if not phone_number or not email:
+    if not phone_number or not email or not card_number:
         return response(400, {
             "error": "Missing required fields: phone_number, and email"
         })
@@ -60,13 +69,19 @@ def lambda_handler(event, context):
         return response(400, {
             "error": "Invalid email format"
         })
+    
+    if not is_valid_card_number(card_number):
+        return response(400, {
+            "error": "Invalid card format"
+        })
 
     user_item = {
         "userId": str(uuid.uuid4()),
         "phoneNumber": phone_number,
         "email": email,
-        "threshold": threshold,
-        "createdAt": created_at
+        "threshold": float(threshold),
+        "createdAt": created_at,
+        "cardNumber": int(card_number),
     }
 
     return response(201, user_item)
