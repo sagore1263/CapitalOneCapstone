@@ -2,6 +2,13 @@ import json
 import uuid
 from datetime import datetime, timezone
 import re
+import boto3
+import os
+from botocore.exceptions import ClientError
+
+
+dynamodb = boto3.resource("dynamodb")
+table = dynamodb.Table(os.environ["USERS_TABLE"])
 
 def response(status_code, body):
 
@@ -52,7 +59,7 @@ def lambda_handler(event, context):
 
     if not phone_number or not email or not card_number:
         return response(400, {
-            "error": "Missing required fields: phone_number, and email"
+            "error": "Missing required fields: phone_number, card_number, and email"
         })
 
     if not is_valid_threshold(threshold):
@@ -76,12 +83,29 @@ def lambda_handler(event, context):
         })
 
     user_item = {
-        "userId": str(uuid.uuid4()),
         "phoneNumber": phone_number,
         "email": email,
         "threshold": float(threshold),
         "createdAt": created_at,
-        "cardNumber": int(card_number),
+        "cardNumber": card_number,
     }
+
+    try:
+        table.put_item(
+            Item=user_item,
+            ConditionExpression="attribute_not_exists(cardNumber)"
+        )
+
+    except ClientError as e:
+        error_code = e.response["Error"]["Code"]
+
+        if error_code == "ConditionalCheckFailedException":
+            return response(409, {"error": "User already exists"})
+
+        return response(500, {
+            "error": "Failed to create user",
+            "details": str(e)
+        })
+
 
     return response(201, user_item)
