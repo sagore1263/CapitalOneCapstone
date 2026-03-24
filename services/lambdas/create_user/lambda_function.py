@@ -1,5 +1,5 @@
 import json
-import uuid
+from decimal import Decimal
 from datetime import datetime, timezone
 import re
 import boto3
@@ -85,7 +85,7 @@ def lambda_handler(event, context):
     user_item = {
         "phoneNumber": phone_number,
         "email": email,
-        "threshold": float(threshold),
+        "threshold": Decimal(threshold),
         "createdAt": created_at,
         "cardNumber": card_number,
     }
