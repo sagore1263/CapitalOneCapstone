@@ -70,7 +70,18 @@ jobs:
       - name: Deploy fraud_lambda
         run: |
           cd ml/scripts
-          zip function.zip lambda_function.py
+
+          rm -rf package function.zip
+          mkdir -p package/artifacts
+
+          cp lambda_function.py package/
+          cp ../artifacts/fraud_forest.json package/artifacts/
+          cp ../artifacts/fraud_cdf.json package/artifacts/
+          cp ../artifacts/feature_metadata.json package/artifacts/
+
+          cd package
+          zip -r function.zip .
+
           aws lambda update-function-code \
             --function-name fraud-scoring-service \
             --zip-file fileb://function.zip
