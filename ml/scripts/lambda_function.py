@@ -3,6 +3,7 @@ from bisect import bisect_left
 from pathlib import Path
 import boto3
 from boto3.dynamodb.conditions import Key
+from decimal import Decimal
 import numpy as np
 import statistics
 from datetime import datetime, timedelta
@@ -22,7 +23,7 @@ FEATURE_NAMES = metadata["feature_names"]
 sorted_probs = cdf_data["sorted_probs"]
 cdf_values = cdf_data["cdf_values"]
 
-dyanmodb = boto3.resource("dynamodb")
+dynamodb = boto3.resource("dynamodb")
 USERS_TABLE = dynamodb.Table("users")
 TRANSACTIONS_TABLE = dynamodb.Table("transactions")
 
@@ -33,14 +34,14 @@ def get_prior_transactions(card_number, current_timestamp):
             Key("cardNumber").eq(card_number) & Key("transactionTimestamp").lt(current_timestamp),
         ScanIndexForward=False
     )
-    items.extend(response.get("Items, []"))
+    items.extend(response.get("Items", []))
 
     while "LastEvaluatedKey" in response:
         response = TRANSACTIONS_TABLE.query(
             KeyConditionExpression=
-                Key("cardNUmber").eq(card_number) & Key("transactionTimestamp").lt(current_timestamp),
+                Key("cardNumber").eq(card_number) & Key("transactionTimestamp").lt(current_timestamp),
             ScanIndexForward=False,
-            ExclusiveStartKey=response["LastKeyEvaluated"]
+            ExclusiveStartKey=response["LastEvaluatedKey"]
         )
         items.extend(response.get("Items", []))
     return items
@@ -50,24 +51,38 @@ def normalize_transaction(txn):
         "cardNumber": "cc_num",
         "transactionTimestamp": "trans_date_trans_time",
         "amount": "amt",
+        "category": "category",
+        "city": "city",
+        "cityPopulation": "city_pop",
         "customerLatitude": "lat",
         "customerLongitude": "long",
+        "dateOfBirth": "dob",
+        "firstName": "first",
+        "gender": "gender",
+        "job": "job",
+        "lastName": "last",
+        "merchant": "merchant",
         "merchantLatitude": "merch_lat",
         "merchantLongitude": "merch_long",
-        "category": "category",
         "state": "state",
-        "dateOfBirth": "dob",
-        "cityPopulation": "city_pop",
-        "firstName": "first",
-        "lastName": "last",
-        "zipCode": "zip",
+        "street": "street",
         "unixTime": "unix_time",
+        "zipCode": "zip",
     }
+
+    numeric_fields = {
+        "amt", "lat", "long", "merch_lat", "merch_long", "city_pop", "unix_time", "cc_num", "zip"
+    }
+
     normalized = {}
     for raw_key, new_key in FIELD_MAP.items():
         if raw_key in txn:
             val = txn[raw_key]
-        normalized[new_key] = val
+
+            if isinstance(val, Decimal) and new_key in numeric_fields:
+                val = float(val) # convert Decimal from dynamoDB to float to avoid weird bugs
+
+            normalized[new_key] = val
     return normalized
 
 def parse_timestamp(txn):
@@ -139,21 +154,25 @@ def compute_features(transaction, prior_transactions):
 
     # time and distance from last transaction
     current_txn['time_since_last'] = (
-        current_txn['trans_date_time_global'] - prior_txns[0]['trans_date_time_global']
-    ).total_seconds() / 3600
+        (current_txn['trans_date_time_global'] - prior_txns[0]['trans_date_time_global']).total_seconds() / 3600
+        if prior_txns else -1
+    )
 
-    merch_lat = np.radians(current_txn['merch_lat'])
-    merch_long = np.radians(current_txn['merch_long'])
-    prev_merch_lat = np.radians(prior_txns[0]['merch_lat'])
-    prev_merch_long = np.radians(prior_txns[0]['merch_long'])
+    if prior_txns:
+        merch_lat = np.radians(current_txn['merch_lat'])
+        merch_long = np.radians(current_txn['merch_long'])
+        prev_merch_lat = np.radians(prior_txns[0]['merch_lat'])
+        prev_merch_long = np.radians(prior_txns[0]['merch_long'])
 
-    dlat = merch_lat - prev_merch_lat
-    dlong = merch_long - prev_merch_long
+        dlat = merch_lat - prev_merch_lat
+        dlong = merch_long - prev_merch_long
 
-    a = np.sin(dlat/2)**2 + np.cos(merch_lat) * np.cos(prev_merch_lat) * np.sin(dlong/2)**2
-    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1-a))
+        a = np.sin(dlat/2)**2 + np.cos(merch_lat) * np.cos(prev_merch_lat) * np.sin(dlong/2)**2
+        c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1-a))
 
-    current_txn['dist_from_last'] = 6371 * c * 0.621371
+        current_txn['dist_from_last'] = 6371 * c * 0.621371
+    else: 
+        current_txn['dist_from_last'] = -1
 
     # age
     current_txn['age'] =  (datetime.now() - datetime.fromisoformat(current_txn['dob'])).days / 365.25
@@ -162,18 +181,15 @@ def compute_features(transaction, prior_transactions):
     amts = []
     cum_sum_amt = 0
     cum_count_amt = 0
-    max_amt = 0
     for txn in prior_txns:
         curr_amt = txn['amt']
         amts.append(curr_amt)
         cum_sum_amt += curr_amt
         cum_count_amt += 1
-        if (curr_amt > max_amt):
-            max_amt = curr_amt
     
-    current_txn["avg_amt"] = cum_sum_amt / cum_count_amt
-    current_txn["median_amt"] = statistics.median(amts)
-    current_txn["max_spent"] = max_amt
+    current_txn["avg_amt"] = cum_sum_amt / cum_count_amt if amts else -1
+    current_txn["median_amt"] = statistics.median(amts) if amts else -1
+    current_txn["max_spent"] = max(amts) if amts else -1
     
     daily_total = 0
     daily_count = 0
@@ -201,21 +217,42 @@ def compute_features(transaction, prior_transactions):
             daily_totals[day_index] += txn['amt']
             daily_counts[day_index] += 1
 
+    current_txn['daily_total'] = daily_total
+    current_txn['daily_count'] = daily_count
+
     current_txn['avg_daily_spending'] = sum(daily_totals) / len(daily_totals) if daily_totals else -1
     current_txn["max_spent_day"] = max(daily_totals) if daily_totals else -1
     current_txn["avg_daily_count"] = sum(daily_counts) / len(daily_counts) if daily_counts else -1
-    current_txn["max_daily_count"] = max(daily_count) if daily_counts else -1
+    current_txn["max_daily_count"] = max(daily_counts) if daily_counts else -1
 
-    current_txn['amt_vs_avg_amt'] = current_txn['amt'] / current_txn['avg_amt']
-    current_txn['amt_vs_avg_daily'] = current_txn['amt'] / current_txn['avg_daily_spending']
-    current_txn['amt_vs_max_Spent'] = current_txn['amt'] / current_txn['max_spent']
-    current_txn['amt_vs_max_spent_day'] = current_txn['amt'] / current_txn['max_spent_day']
-
-    current_txn['daily_total_vs_avg_daily_spending'] = current_txn['daily_total'] / current_txn['avg_daily_spending']
-    
-    current_txn['daily_count_vs_avg_daily_count'] = current_txn['daily_count'] / current_txn['avg_daily_count']
-    current_txn['daily_count_vs_max_daily_count'] = current_txn['daily_count'] / current_txn['max_daily_count']
-
+    current_txn['amt_vs_avg_amt'] = (
+        current_txn['amt'] / current_txn['avg_amt']
+        if current_txn['avg_amt'] not in (0, -1) else -1
+    )
+    current_txn['amt_vs_avg_daily'] = (
+        current_txn['amt'] / current_txn['avg_daily_spending'] 
+        if current_txn['avg_daily_spending'] not in (0, -1) else -1
+    )
+    current_txn['amt_vs_max_spent'] = (
+        current_txn['amt'] / current_txn['max_spent']
+        if current_txn['max_spent'] not in (0, -1) else -1
+    )
+    current_txn['amt_vs_max_spent_day'] = (
+        current_txn['amt'] / current_txn['max_spent_day']
+        if current_txn['max_spent_day'] not in (0, -1) else -1
+    )
+    current_txn['daily_total_vs_avg_daily_spending'] = (
+        current_txn['daily_total'] / current_txn['avg_daily_spending']
+        if current_txn['avg_daily_spending'] not in (0, -1) else -1
+    )
+    current_txn['daily_count_vs_avg_daily_count'] = (
+        current_txn['daily_count'] / current_txn['avg_daily_count']
+        if current_txn['avg_daily_count'] not in (0, -1) else -1
+    )
+    current_txn['daily_count_vs_max_daily_count'] = (
+        current_txn['daily_count'] / current_txn['max_daily_count']
+        if current_txn['max_daily_count'] not in (0, -1) else -1
+    )
     # weekly stats
     weekly_total = 0
     weekly_count = 0
@@ -247,14 +284,24 @@ def compute_features(transaction, prior_transactions):
             weekly_totals[week_index] += txn['amt']
             weekly_counts[week_index] += 1
 
+    current_txn['weekly_total'] = weekly_total
+    current_txn['weekly_count'] = weekly_count
+
     current_txn['avg_weekly_spending'] = sum(weekly_totals) / len(weekly_totals) if weekly_totals else -1
-    current_txn['avg_Weekly_count'] = sum(weekly_counts) / len(weekly_counts) if weekly_counts else -1
+    current_txn['avg_weekly_count'] = sum(weekly_counts) / len(weekly_counts) if weekly_counts else -1
 
-    current_txn['amt_vs_avg_weekly'] = current_txn['amt'] / current_txn['avg_weekly_spending']
-    current_txn['weekly_count_vs_avg_weekly_count'] = current_txn['weekly_count'] / current_txn['avg_weekly_count']
-
-    current_txn['daily_total_vs_avg_weekly_spending'] = current_txn['daily_total'] / current_txn['avg_weekly_spending']
-
+    current_txn['amt_vs_avg_weekly'] = (
+        current_txn['amt'] / current_txn['avg_weekly_spending']
+        if current_txn['avg_weekly_spending'] not in (0, -1) else -1
+    )
+    current_txn['weekly_count_vs_avg_weekly_count'] = (
+        current_txn['weekly_count'] / current_txn['avg_weekly_count']
+        if current_txn['avg_weekly_count'] not in (0, -1) else -1
+    )
+    current_txn['daily_total_vs_avg_weekly_spending'] = (
+        current_txn['daily_total'] / current_txn['avg_weekly_spending']
+        if current_txn['avg_weekly_spending'] not in (0, -1) else -1
+    )
     # merchant/category stats
     merchant_count = 0
     merchant_amt = 0
@@ -266,40 +313,55 @@ def compute_features(transaction, prior_transactions):
             merchant_amt += txn['amt']
         if (txn['category'] == current_txn['category']):
             category_count += 1
-            category_count +- txn['amt']
+            category_amt += txn['amt']
 
     current_txn['merchant_count'] = merchant_count
-    current_txn['merchant_avg_amt'] = merchant_amt / merchant_count
-    current_txn['amt_vs_merchant_avg_amt'] = current_txn['amt'] / current_txn['merchant_avg_amt']
-    current_txn['merchant_trans_ratio'] = current_txn['merchant_count'] / cum_count_amt
+    current_txn['merchant_avg_amt'] = merchant_amt / merchant_count if merchant_count > 0 else -1
+    current_txn['amt_vs_merchant_avg_amt'] = (
+        current_txn['amt'] / current_txn['merchant_avg_amt'] 
+        if current_txn['merchant_avg_amt'] not in (0, -1) else -1
+    )
+    current_txn['merchant_trans_ratio'] = current_txn['merchant_count'] / cum_count_amt if cum_count_amt > 0 else -1
 
     current_txn['cat_count'] = category_count
-    current_txn['cat_avg_amt'] = category_amt / category_count
-    current_txn['amt_vs_cat_avg_amt'] = current_txn['cat_count'] / current_txn['cat_avg_amt']
-    current_txn['cat_trans_ratio'] = current_txn['cat_count'] / cum_count_amt
+    current_txn['cat_avg_amt'] = category_amt / category_count if category_count > 0 else -1
+    current_txn['amt_vs_cat_avg_amt'] = (
+        current_txn['amt'] / current_txn['cat_avg_amt'] 
+        if current_txn['cat_avg_amt'] not in (0, -1) else -1
+    )
+    current_txn['cat_trans_ratio'] = current_txn['cat_count'] / cum_count_amt if cum_count_amt > 0 else -1
 
-    # data cleaning
-    
-        
+    # one-hot encoding of category
+    CATEGORY_COLUMNS = [
+        "cat_entertainment",
+        "cat_food_dining",
+        "cat_gas_transport",
+        "cat_grocery_net",
+        "cat_grocery_pos",
+        "cat_health_fitness",
+        "cat_home",
+        "cat_kids_pets",
+        "cat_misc_net",
+        "cat_misc_pos",
+        "cat_personal_care",
+        "cat_shopping_net",
+        "cat_shopping_pos",
+        "cat_travel"
+    ]
 
+    category = current_txn['category']
+    for col in CATEGORY_COLUMNS:
+        cat_name = col.replace("cat_", "")
+        current_txn[col] = 1 if category == cat_name else 0
 
-    
-
-
-
-    return features
+    return current_txn
 
 def build_feature_vector(transaction: dict):
     card_number = transaction["cardNumber"]
     current_timestamp = transaction["transactionTimestamp"]
     prior_transactions = get_prior_transactions(card_number, current_timestamp)
 
-    if prior_transactions:
-        transaction = compute_features(transaction, prior_transactions)
-    else:
-        # if there are no prior transactions for the user
-        None
-
+    transaction = compute_features(transaction, prior_transactions)
 
     values = []
     for name in FEATURE_NAMES:
