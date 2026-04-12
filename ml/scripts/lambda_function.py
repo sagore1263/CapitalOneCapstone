@@ -256,7 +256,33 @@ def compute_features(transaction, prior_transactions):
     current_txn['daily_total_vs_avg_weekly_spending'] = current_txn['daily_total'] / current_txn['avg_weekly_spending']
 
     # merchant/category stats
+    merchant_count = 0
+    merchant_amt = 0
+    category_count = 0
+    category_amt = 0
+    for txn in prior_txns:
+        if (txn['merchant'] == current_txn['merchant']):
+            merchant_count += 1
+            merchant_amt += txn['amt']
+        if (txn['category'] == current_txn['category']):
+            category_count += 1
+            category_count +- txn['amt']
+
+    current_txn['merchant_count'] = merchant_count
+    current_txn['merchant_avg_amt'] = merchant_amt / merchant_count
+    current_txn['amt_vs_merchant_avg_amt'] = current_txn['amt'] / current_txn['merchant_avg_amt']
+    current_txn['merchant_trans_ratio'] = current_txn['merchant_count'] / cum_count_amt
+
+    current_txn['cat_count'] = category_count
+    current_txn['cat_avg_amt'] = category_amt / category_count
+    current_txn['amt_vs_cat_avg_amt'] = current_txn['cat_count'] / current_txn['cat_avg_amt']
+    current_txn['cat_trans_ratio'] = current_txn['cat_count'] / cum_count_amt
+
+    # data cleaning
     
+        
+
+
     
 
 
