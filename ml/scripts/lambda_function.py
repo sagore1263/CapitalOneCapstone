@@ -9,7 +9,7 @@ import statistics
 from datetime import datetime, timedelta
 
 BASE_DIR = Path(__file__).resolve().parent
-ARTIFACT_DIR = BASE_DIR / "artifacts"
+ARTIFACT_DIR = BASE_DIR / "artifacts" # maybe add .parent after BASE_DIR if issues
 
 MODEL_PATH = ARTIFACT_DIR / "fraud_forest.json"
 CDF_PATH = ARTIFACT_DIR / "fraud_cdf.json"
@@ -23,11 +23,10 @@ FEATURE_NAMES = metadata["feature_names"]
 sorted_probs = cdf_data["sorted_probs"]
 cdf_values = cdf_data["cdf_values"]
 
-dynamodb = boto3.resource("dynamodb")
-USERS_TABLE = dynamodb.Table("users")
-TRANSACTIONS_TABLE = dynamodb.Table("transactions")
-
 def get_prior_transactions(card_number, current_timestamp):
+    dynamodb = boto3.resource("dynamodb")
+    TRANSACTIONS_TABLE = dynamodb.Table("transactions")
+
     items = []
     response = TRANSACTIONS_TABLE.query(
         KeyConditionExpression=
