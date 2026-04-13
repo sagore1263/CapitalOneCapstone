@@ -5,15 +5,15 @@ import os
 from decimal import Decimal
 from datetime import datetime, timezone, timedelta
 from botocore.exceptions import ClientError
-lambda_client = boto3.client("lambda")
-ALERT_LAMBDA_NAME = os.environ["ALERT_LAMBDA_NAME"]
+
 lambda_client = boto3.client("lambda")
 dynamodb = boto3.resource("dynamodb")
 
+ALERT_LAMBDA_NAME = os.environ["ALERT_LAMBDA_NAME"]
+FRAUD_LAMBDA_NAME = os.environ.get("FRAUD_LAMBDA_NAME")
+
 transactions_table = dynamodb.Table(os.environ["TRANSACTIONS_TABLE"])
 users_table = dynamodb.Table(os.environ["USERS_TABLE"])
-
-FRAUD_LAMBDA_NAME = os.environ.get("FRAUD_LAMBDA_NAME")
 
 
 def response(status_code, body):
@@ -166,6 +166,7 @@ def put_transaction_with_unique_timestamp(transaction, max_attempts=5):
         "Could not create a unique transactionTimestamp for this cardNumber after multiple attempts"
     )
 
+
 def invoke_alert_lambda(transaction):
     payload = {
         "transactionId": transaction["transactionId"],
@@ -182,6 +183,7 @@ def invoke_alert_lambda(transaction):
         Payload=json.dumps(payload).encode("utf-8")
     )
 
+
 def lambda_handler(event, context):
     try:
         path_params = event.get("pathParameters") or {}
@@ -195,13 +197,7 @@ def lambda_handler(event, context):
                 "error": "No user found for the provided cardNumber"
             })
 
-        try:
-            fraud_result = invoke_fraud_lambda(transaction)
-        except Exception:
-            fraud_result = {
-                "prediction_probability": 0.0841,
-                "fraud_score": 0.88
-            }
+        fraud_result = invoke_fraud_lambda(transaction)
 
         transaction["prediction_probability"] = Decimal(
             str(fraud_result.get("prediction_probability", 0))
@@ -212,9 +208,8 @@ def lambda_handler(event, context):
 
         transaction = convert_floats_to_decimal(transaction)
         saved_transaction = put_transaction_with_unique_timestamp(transaction)
-        print("About to invoke alert lambda")
+
         invoke_alert_lambda(decimal_to_native(saved_transaction))
-        print("Alert lambda invoked")
 
         return response(201, decimal_to_native(saved_transaction))
 
