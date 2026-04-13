@@ -7,7 +7,14 @@ const mockStore = { users: [], txs: [] };
 const mockApi = {
   async createUser(payload) {
     const now = new Date().toISOString();
-    const user = { id: uid(), created_at: now, ...payload, threshold: Number(payload.threshold ?? 0.5) };
+    const user = {
+      id: uid(),
+      created_at: now,
+      phone_num: payload.phone_num ?? payload.phone_number,
+      email: payload.email,
+      threshold: Number(payload.threshold ?? 0.5),
+      card_number: payload.card_number,
+    };
     mockStore.users.push(user);
     return user;
   },
@@ -35,10 +42,24 @@ const liveApi = (baseUrl) => ({
     const res = await fetch(`${baseUrl}/users`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        card_number: payload.card_number,
+        phone_number: payload.phone_number,
+        email: payload.email,
+        threshold: String(payload.threshold ?? 0.5),
+      }),
     });
     if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    const data = await res.json();
+    return {
+      id: data.cardNumber,
+      phone_num: data.phoneNumber,
+      email: data.email,
+      threshold: Number(data.threshold ?? 0.5),
+      created_at: data.createdAt,
+      card_number: data.cardNumber,
+      raw: data,
+    };
   },
   async listUsers() {
     const res = await fetch(`${baseUrl}/users`);
@@ -79,8 +100,8 @@ const FRAUD_LOCATIONS = [
 ];
 
 function App() {
-  const [useMock, setUseMock] = useState(true);
-  const [baseUrl, setBaseUrl] = useState("http://localhost:3000/api/v1");
+  const [useMock, setUseMock] = useState(false);
+  const [baseUrl, setBaseUrl] = useState("https://rw7ca8yad8.execute-api.us-east-2.amazonaws.com/dev/api/v1");
   const [users, setUsers] = useState([]);
   const [logItems, setLogItems] = useState([]);
   const [txDefaults] = useState({ timestamp: toLocalInput() });
@@ -95,6 +116,7 @@ function App() {
   };
 
   const refreshUsers = async () => {
+    if (!useMock) return;
     try {
       const list = await api.listUsers();
       setUsers(list);
@@ -110,10 +132,54 @@ function App() {
     try {
       const user = await api.createUser(payload);
       log("User created", user);
-      refreshUsers();
+      if (useMock) {
+        refreshUsers();
+      } else {
+        setUsers((prev) => [user, ...prev.filter((existing) => existing.id !== user.id)]);
+      }
     } catch (err) {
       log("User create failed", err.message, "error");
     }
+  };
+
+  const createSampleUsers = async () => {
+    const samples = [
+      {
+        card_number: `411111111111${Math.floor(1000 + Math.random() * 9000)}`,
+        phone_number: `+1555${Math.floor(1000000 + Math.random() * 9000000)}`,
+        email: `ada-${uid().slice(0, 6)}@example.com`,
+        threshold: 0.35,
+      },
+      {
+        card_number: `422222222222${Math.floor(1000 + Math.random() * 9000)}`,
+        phone_number: `+1555${Math.floor(1000000 + Math.random() * 9000000)}`,
+        email: `bruce-${uid().slice(0, 6)}@example.com`,
+        threshold: 0.6,
+      },
+    ];
+
+    if (useMock) {
+      mockApi.seed();
+      refreshUsers();
+      log("Created sample users");
+      return;
+    }
+
+    for (const sample of samples) {
+      await handleCreateUser(sample);
+    }
+  };
+
+  const clearUsers = () => {
+    if (!useMock) {
+      setUsers([]);
+      log("Cleared local user list");
+      return;
+    }
+
+    mockApi.clear();
+    refreshUsers();
+    log("Cleared users & mock data");
   };
 
   const handleCreateTx = async (userId, payload) => {
@@ -145,8 +211,8 @@ function App() {
       </div>
       <Playground
         useMock={useMock}
-        onSeed={() => { mockApi.seed(); refreshUsers(); log("Created sample users"); }}
-        onClear={() => { mockApi.clear(); refreshUsers(); log("Cleared users & mock data"); }}
+        onSeed={createSampleUsers}
+        onClear={clearUsers}
       />
     </div>
   );
@@ -156,7 +222,7 @@ const Header = ({ useMock, setUseMock, baseUrl, setBaseUrl }) => (
   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", flexWrap: "wrap" }}>
     <div>
       <h1>Fraud Detection Prototype</h1>
-      <p className="lead">Create users and submit transactions while the backend is still a stub. Flip between mock data and the live Express API when it’s ready.</p>
+      <p className="lead">Create users and submit transactions against the deployed Lambda API, or switch back to mock mode for local-only testing.</p>
       <div className="pill">UI Mode: React + mockable API</div>
     </div>
     <div className="card" style={{ padding: "12px 16px" }}>
@@ -167,7 +233,7 @@ const Header = ({ useMock, setUseMock, baseUrl, setBaseUrl }) => (
       </div>
       <label style={{ marginTop: "12px" }}>Live API base URL</label>
       <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
-      <p className="muted small" style={{ marginTop: 6 }}>Matches Express stub in <code>api/server.js</code>.</p>
+      <p className="muted small" style={{ marginTop: 6 }}>Uses the deployed API Gateway base URL for the Lambda-backed endpoints.</p>
     </div>
   </div>
 );
@@ -188,11 +254,17 @@ const Playground = ({ useMock, onSeed, onClear }) => (
 const Card = ({ children }) => <div className="card">{children}</div>;
 
 function UserForm({ onSubmit }) {
-  const [form, setForm] = useState({ phone_num: "", email: "", threshold: 0.5 });
+  const [form, setForm] = useState({ card_number: "", phone_number: "", email: "", threshold: 0.5 });
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit({ ...form, email: form.email || undefined }); setForm({ phone_num: "", email: "", threshold: 0.5 }); }}>
+    <form onSubmit={(e) => {
+      e.preventDefault();
+      onSubmit({ ...form, email: form.email || undefined });
+      setForm({ card_number: "", phone_number: "", email: "", threshold: 0.5 });
+    }}>
+      <label>Card number</label>
+      <input required placeholder="4111111111111111" value={form.card_number} onChange={(e) => setForm({ ...form, card_number: e.target.value })} />
       <label>Phone number (E.164)</label>
-      <input required placeholder="+15555551234" value={form.phone_num} onChange={(e) => setForm({ ...form, phone_num: e.target.value })} />
+      <input required placeholder="+15555551234" value={form.phone_number} onChange={(e) => setForm({ ...form, phone_number: e.target.value })} />
       <label>Email (optional)</label>
       <input type="email" placeholder="name@email.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
       <label>Alert threshold (0 - 1)</label>
