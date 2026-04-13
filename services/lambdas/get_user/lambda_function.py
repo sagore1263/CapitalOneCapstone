@@ -1,4 +1,20 @@
 import json
+import boto3
+import os
+from decimal import Decimal
+
+dynamodb = boto3.resource("dynamodb")
+table = dynamodb.Table(os.environ["USERS_TABLE"])
+
+
+def decimal_to_native(obj):
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, dict):
+        return {k: decimal_to_native(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [decimal_to_native(v) for v in obj]
+    return obj
 
 
 def response(status_code, body):
@@ -12,36 +28,17 @@ def response(status_code, body):
     }
 
 
-def build_placeholder_user(user_id):
-    return {
-        "userId": user_id,
-        "phoneNumber": "+15555550111",
-        "email": "placeholder@example.com",
-        "threshold": 0.5,
-        "createdAt": "2026-03-23T00:00:00+00:00"
-    }
-
-
-def get_user_by_id(user_id):
-    """
-    Placeholder retrieval layer.
-
-    In the future, replace this with a real data lookup such as DynamoDB:
-    - query by userId
-    - return None if the user does not exist
-    - map the stored record into the API response shape
-    """
-    return build_placeholder_user(user_id)
-
-
 def lambda_handler(event, context):
     user_id = (event.get("pathParameters") or {}).get("userId")
 
     if not user_id:
         return response(400, {"error": "Missing required path parameter: userId"})
 
-    user_item = get_user_by_id(user_id)
-    if user_item is None:
+    # Current users table is keyed by cardNumber, so userId is treated as cardNumber.
+    result = table.get_item(Key={"cardNumber": str(user_id)})
+    item = result.get("Item")
+
+    if not item:
         return response(404, {"error": "User not found"})
 
-    return response(200, user_item)
+    return response(200, decimal_to_native(item))
