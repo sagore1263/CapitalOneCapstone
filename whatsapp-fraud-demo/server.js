@@ -1,3 +1,4 @@
+//removed credentials since this is on AWS server now. 
 import express from "express";
 import axios from "axios";
 import dotenv from "dotenv";
