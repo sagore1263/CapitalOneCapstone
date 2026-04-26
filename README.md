@@ -1,95 +1,184 @@
 # Capital One Fraud Detection System
 
+## Repository Link
+https://github.com/sagore1263/CapitalOneCapstone
+
+---
+
 ## Overview
 
-The Capital One Fraud Detection System is a cloud-based application designed to identify potentially fraudulent credit card transactions in real time. The system analyzes transaction data, generates a fraud risk score, and sends SMS alerts to users when suspicious activity exceeds a user-defined threshold. It is built to demonstrate how machine learning, cloud infrastructure, and event-driven services can work together to improve fraud detection and customer response time.
+The Capital One Fraud Detection System is a cloud-based application designed to identify potentially fraudulent credit card transactions in real time. The system analyzes transaction data, generates a fraud risk score, and sends WhatsApp alerts to users when suspicious activity exceeds a user-defined threshold.
+
+This project demonstrates how cloud infrastructure, event-driven services, machine learning and user interaction can be combined to build a real-time, end-to-end fraud detection pipeline.
+
+---
 
 ## Problem Statement
 
-Credit card fraud can cause major financial losses for both customers and financial institutions. Traditional fraud detection systems may not always provide immediate alerts or allow users to respond quickly. This project aims to create a simple but effective fraud detection workflow that:
+Credit card fraud can cause major financial losses for both customers and financial institutions. Traditional fraud detection systems may not always provide immediate alerts or allow users to respond quickly.
 
-* processes transactions through an API,
-* predicts the likelihood of fraud,
-* notifies users immediately through text alerts,
-* and allows user responses to improve fraud handling.
+This project creates a system that:
+- processes transactions through an API
+- evaluates fraud risk
+- notifies users instantly
+- allows real-time user feedback
+
+---
 
 ## Key Features
 
-* **Transaction API** for creating and processing credit card transactions
-* **Fraud scoring model** that classifies transactions as low-risk or suspicious
-* **User-defined fraud threshold** so alerts are only sent when risk exceeds a chosen level
-* **SMS alerts** to notify users of suspicious transactions in real time
-* **Two-way user response flow** so users can confirm or deny fraudulent activity
-* **Cloud deployment on AWS** for scalability and system integration
-* **Simple UI** for account creation and transaction submission
+- Transaction API for creating and processing transactions  
+- Random forest model based fraud scoring system   
+- User-defined fraud threshold  
+- Real-time WhatsApp alerts via Meta Cloud API  
+- Two-way user response system (YES / NO)  
+- Cloud deployment on AWS (Lambda, API Gateway, DynamoDB, IAM)  
+- Fully serverless backend  
+- Simple UI for creating users and transactions
+
+---
+
+## Setup Steps
+
+### 1. Clone Repository
+```bash
+git clone https://github.com/sagore1263/CapitalOneCapstone
+cd CapitalOneCapstone
+```
+### 2. Create user account 
+```bash 
+cd ui
+npm run dev
+```
+Create a user account with your name, phone and card number and keep receiving alerts for fraud on your card as soon as it happens! 
+---
+
+### 2. AWS Setup
+
+#### DynamoDB Tables
+
+**users**
+- Partition key: `cardNumber` (String)
+
+**transactions**
+- Partition key: `cardNumber` (String)
+- Sort key: `transactionTimestamp` (String)
+
+**pending_alerts**
+- Partition key: `phoneNumber` (String)
+
+---
+
+#### Lambda Functions
+
+- create_user: creates a new user in the corresponding table
+- get_user: returns a json based on user id
+- get_users: returns json of all users
+- create_transaction: adds a transaction and calls fraud scoring service, checks if alert needs to be sent
+- get_transaction: returns a transaction from the table based on id
+- send_whatsapp_alert: sends a text alert to the phone number
+- whatsapp_webhook: connects aws to meta api
+- fraud scoring service: scores incoming transactions a value between 0 and 1.
+---
+
+#### Environment Variables
+
+**create_transaction**
+ALERT_LAMBDA_NAME=send_whatsapp_alert  
+USERS_TABLE=users  
+TRANSACTIONS_TABLE=transactions  
+
+**send_whatsapp_alert**
+META_ACCESS_TOKEN=your_token  
+META_PHONE_NUMBER_ID=your_phone_id  
+USERS_TABLE=users  
+PENDING_ALERTS_TABLE=pending_alerts  
+
+**whatsapp_webhook**
+META_VERIFY_TOKEN=your_verify_token  
+PENDING_ALERTS_TABLE=pending_alerts  
+TRANSACTIONS_TABLE=transactions  
+
+---
+
+#### API Gateway
+
+Set up the following routes:
+
+POST /api/v1/users  
+GET /api/v1/users  
+GET /api/v1/users/{userId}  
+POST /api/v1/users/{userId}/transactions  
+GET /api/v1/transactions/{transactionId}  
+GET /webhook  
+POST /webhook  
+---
+
+### 3. WhatsApp Setup
+
+- Add your number to Meta sandbox thorugh our UI
+- Webhook URL:
+https://<api-id> (secret).execute-api.us-east-2.amazonaws.com/dev/webhook
+
+---
 
 ## How It Works
 
-1. A transaction is submitted through the application or API.
-2. The backend sends the transaction data to the fraud detection model.
-3. The model returns a fraud probability score.
-4. If the score exceeds the user’s threshold, the system triggers an SMS alert.
-5. The user can respond to the text alert to confirm whether the transaction is legitimate.
-6. The system stores the response and can use that feedback to improve fraud labeling and future detection workflows.
+1. A user is created with phone number, card number, and threshold.
+2. A transaction is submitted via API.
+3. The system assigns a fraud score between 0 an 1.
+4. If fraud_score >= threshold, alert is triggered.
+5. WhatsApp message is sent.
+6. Pending alert stored in DynamoDB.
+7. User replies YES or NO.
+8. Webhook updates transaction status.
 
-## Tech Stack
+---
 
-* **Frontend:** Simple web UI
-* **Backend:** API service for transaction handling
-* **Machine Learning:** Fraud classification model
-* **Messaging:** Twilio SMS alerts
-* **Cloud:** AWS
-* **Version Control:** Git / GitHub
+## What Works
 
-## System Architecture
+- End-to-end API system  
+- DynamoDB integration  
+- Fraud detection pipeline  
+- WhatsApp alert sending  
+- User response loop  
+- Serverless deployment  
+- Every core feature we wanted to be done successfully works. 
+---
 
-This project follows an event-driven architecture where transaction events flow through multiple connected services:
+## Limitations
 
-* Account creation / preferences service
-* Transaction input layer / service
-* Fraud scoring / model service
-* Alerting service
-* User response handling
-* Cloud-hosted infrastructure
+- WhatsApp messages only   
+- No authentication   
+- No retry logic   
 
-The full architecture and flow diagram is attached to the repository with specific details about the overall system. 
+---
 
-## Example Use Case
+## Next Steps
 
-A customer makes a credit card purchase. The system evaluates the transaction and assigns a high fraud score. Because the score exceeds the customer’s chosen threshold, the system immediately sends an SMS alert. The customer replies to confirm whether the charge is legitimate, allowing the system to update the transaction status.
+- Real ML fraud model based on actual user data 
+- Authentication    
+- Fallback system 
 
-## API Endpoints
+---
 
-Example endpoints may include:
+## Docs
 
-* `POST /transactions` – create and process a transaction
-* `GET /transactions/:id` – retrieve transaction details
-* `POST /alerts/respond` – process user response to fraud alert
-* `GET /users/:id/settings` – retrieve user fraud threshold settings
+All relevants have been added to our team folder: https://drive.google.com/drive/u/0/folders/1DbgY-xU7hdEt7XRvP2AtdiWuC6pzbBLa
 
-## Future Improvements
+---
 
-* Improve model accuracy with more training data
-* Add a dashboard for transaction history and fraud analytics
-* Support push notifications in addition to SMS
-* Add authentication and role-based access
-* Store and use user feedback for ongoing model retraining
-* Expand monitoring and logging for production deployment
+## Slides
 
-## Project Goals
+https://docs.google.com/presentation/d/1lxFDlbs1Ii34p5SaSA63XaQNaf6mQjvTRTyobDehmQI/edit?slide=id.p#slide=id.p
 
-This project is intended to demonstrate:
+---
 
-* real-time fraud detection workflows,
-* event-driven backend architecture,
-* cloud integration,
-* and user-centered alerting for suspicious financial activity.
+## Team
 
-## Team Poages Developers:
-
-* Ricky Das
-* Stanley White
-* Swapnil Gore
-* Anirudh Jagannath
-* Jivesh Mehta
-* Kyle Poage
+Ricky Das  
+Stanley White  
+Swapnil Gore  
+Anirudh Jagannath  
+Jivesh Mehta  
+Kyle Poage  
