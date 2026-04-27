@@ -1,43 +1,8 @@
-const { useState, useEffect, useMemo } = React;
+const { useState, useEffect } = React;
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
 
-// Mock API (in-memory)
-const mockStore = { users: [], txs: [] };
-const mockApi = {
-  async createUser(payload) {
-    const now = new Date().toISOString();
-    const user = {
-      id: uid(),
-      created_at: now,
-      phone_num: payload.phone_num ?? payload.phone_number,
-      email: payload.email,
-      threshold: Number(payload.threshold ?? 0.5),
-      card_number: payload.card_number,
-    };
-    mockStore.users.push(user);
-    return user;
-  },
-  async listUsers() { return [...mockStore.users]; },
-  async createTransaction(userId, payload) {
-    const now = new Date().toISOString();
-    const tx = { id: uid(), user_id: userId, created_at: now, fraud_score: null, is_fraud: null, ...payload };
-    mockStore.txs.push(tx);
-    return tx;
-  },
-  clear() { mockStore.users = []; mockStore.txs = []; },
-  seed() {
-    this.clear();
-    const samples = [
-      { phone_num: "+15555550111", email: "ada@example.com", threshold: 0.35 },
-      { phone_num: "+15555550222", email: "bruce@example.com", threshold: 0.6 },
-    ];
-    samples.forEach((u) => this.createUser(u));
-  },
-};
-
-// Live API client (fetch)
-const liveApi = (baseUrl) => ({
+const apiClient = (baseUrl) => ({
   async createUser(payload) {
     const res = await fetch(`${baseUrl}/users`, {
       method: "POST",
@@ -60,11 +25,6 @@ const liveApi = (baseUrl) => ({
       card_number: data.cardNumber,
       raw: data,
     };
-  },
-  async listUsers() {
-    const res = await fetch(`${baseUrl}/users`);
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
   },
   async createTransaction(userId, payload) {
     const res = await fetch(`${baseUrl}/users/${userId}/transactions`, {
@@ -99,14 +59,38 @@ const FRAUD_LOCATIONS = [
   "Houston, TX"
 ];
 
+const TX_CATEGORIES = [
+  "food_dining", "gas_transport", "grocery_net", "grocery_pos",
+  "health_fitness", "home", "kids_pets", "misc_net", "misc_pos",
+  "personal_care", "shopping_net", "shopping_pos", "travel", "entertainment"
+];
+
+const SAMPLE_FIRST_NAMES = ["James", "Maria", "John", "Patricia", "Robert", "Jennifer", "Michael", "Linda", "David", "Barbara"];
+const SAMPLE_LAST_NAMES  = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Wilson", "Taylor"];
+const SAMPLE_JOBS = ["Engineer", "Teacher", "Accountant", "Nurse", "Manager", "Designer", "Analyst", "Chef", "Writer", "Lawyer"];
+const SAMPLE_STREETS = ["123 Main St", "456 Oak Ave", "789 Pine Rd", "321 Elm Blvd", "654 Maple Dr"];
+const SAMPLE_CITIES_STATES = [
+  { city: "Austin",      state: "TX", zip: "78701", lat: 30.2672, lng: -97.7431, pop: 961855 },
+  { city: "Denver",      state: "CO", zip: "80201", lat: 39.7392, lng: -104.9903, pop: 715522 },
+  { city: "Atlanta",     state: "GA", zip: "30301", lat: 33.7490, lng: -84.3880, pop: 498715 },
+  { city: "Seattle",     state: "WA", zip: "98101", lat: 47.6062, lng: -122.3321, pop: 737255 },
+  { city: "Phoenix",     state: "AZ", zip: "85001", lat: 33.4484, lng: -112.0740, pop: 1608139 },
+  { city: "Chicago",     state: "IL", zip: "60601", lat: 41.8781, lng: -87.6298, pop: 2696555 },
+  { city: "Boston",      state: "MA", zip: "02101", lat: 42.3601, lng: -71.0589, pop: 675647 },
+  { city: "Portland",    state: "OR", zip: "97201", lat: 45.5051, lng: -122.6750, pop: 652503 },
+];
+
+const randUsLat  = () => parseFloat((Math.random() * 24 + 25).toFixed(6));
+const randUsLng  = () => parseFloat((Math.random() * 57 - 125).toFixed(6));
+const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
 function App() {
-  const [useMock, setUseMock] = useState(false);
   const [baseUrl, setBaseUrl] = useState("https://rw7ca8yad8.execute-api.us-east-2.amazonaws.com/dev/api/v1");
   const [users, setUsers] = useState([]);
   const [logItems, setLogItems] = useState([]);
   const [txDefaults] = useState({ timestamp: toLocalInput() });
 
-  const api = useMemo(() => (useMock ? mockApi : liveApi(baseUrl)), [useMock, baseUrl]);
+  const api = apiClient(baseUrl);
 
   const log = (message, payload, status = "ok") => {
     setLogItems((prev) => [
@@ -115,28 +99,11 @@ function App() {
     ]);
   };
 
-  const refreshUsers = async () => {
-    if (!useMock) return;
-    try {
-      const list = await api.listUsers();
-      setUsers(list);
-      log("Fetched users", list);
-    } catch (err) {
-      log("Fetch users failed", err.message, "error");
-    }
-  };
-
-  useEffect(() => { refreshUsers(); }, [api]);
-
   const handleCreateUser = async (payload) => {
     try {
       const user = await api.createUser(payload);
       log("User created", user);
-      if (useMock) {
-        refreshUsers();
-      } else {
-        setUsers((prev) => [user, ...prev.filter((existing) => existing.id !== user.id)]);
-      }
+      setUsers((prev) => [user, ...prev.filter((existing) => existing.id !== user.id)]);
     } catch (err) {
       log("User create failed", err.message, "error");
     }
@@ -158,28 +125,14 @@ function App() {
       },
     ];
 
-    if (useMock) {
-      mockApi.seed();
-      refreshUsers();
-      log("Created sample users");
-      return;
-    }
-
     for (const sample of samples) {
       await handleCreateUser(sample);
     }
   };
 
   const clearUsers = () => {
-    if (!useMock) {
-      setUsers([]);
-      log("Cleared local user list");
-      return;
-    }
-
-    mockApi.clear();
-    refreshUsers();
-    log("Cleared users & mock data");
+    setUsers([]);
+    log("Cleared local user list");
   };
 
   const handleCreateTx = async (userId, payload) => {
@@ -193,7 +146,7 @@ function App() {
 
   return (
     <div className="page">
-      <Header useMock={useMock} setUseMock={setUseMock} baseUrl={baseUrl} setBaseUrl={setBaseUrl} />
+      <Header baseUrl={baseUrl} setBaseUrl={setBaseUrl} />
       <div className="grid">
         <Card>
           <h2>Create Account</h2>
@@ -205,12 +158,11 @@ function App() {
         </Card>
         <Card>
           <h2>Activity Log</h2>
-          <p className="muted small">Shows API calls (mock or live) and responses.</p>
+          <p className="muted small">Shows API calls and responses from the deployed backend.</p>
           <Log items={logItems} />
         </Card>
       </div>
       <Playground
-        useMock={useMock}
         onSeed={createSampleUsers}
         onClear={clearUsers}
       />
@@ -218,19 +170,14 @@ function App() {
   );
 }
 
-const Header = ({ useMock, setUseMock, baseUrl, setBaseUrl }) => (
+const Header = ({ baseUrl, setBaseUrl }) => (
   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", flexWrap: "wrap" }}>
     <div>
-      <h1>Fraud Detection Prototype</h1>
-      <p className="lead">Create users and submit transactions against the deployed Lambda API, or switch back to mock mode for local-only testing.</p>
-      <div className="pill">UI Mode: React + mockable API</div>
+      <h1>Capital One Fraud Detection</h1>
+      <p className="lead">Create users and submit transactions against the deployed Lambda API.</p>
+      <div className="pill">UI Mode: Live API</div>
     </div>
     <div className="card" style={{ padding: "12px 16px" }}>
-      <div className="inline">
-        <span className="muted small">Mock API</span>
-        <div className={"toggle " + (useMock ? "on" : "")} role="button" aria-label="toggle api mode" onClick={() => setUseMock((v) => !v)}></div>
-        <span className="muted small">Live API</span>
-      </div>
       <label style={{ marginTop: "12px" }}>Live API base URL</label>
       <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
       <p className="muted small" style={{ marginTop: 6 }}>Uses the deployed API Gateway base URL for the Lambda-backed endpoints.</p>
@@ -238,12 +185,12 @@ const Header = ({ useMock, setUseMock, baseUrl, setBaseUrl }) => (
   </div>
 );
 
-const Playground = ({ useMock, onSeed, onClear }) => (
+const Playground = ({ onSeed, onClear }) => (
   <div className="card" style={{ margin: "16px 0" }}>
     <div className="row" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
       <div>
         <label>Data playground</label>
-        <p className="muted small">Active mode: {useMock ? "Mock (in-memory)" : "Live (fetching API)"}</p>
+        <p className="muted small">Creates sample users through the deployed API and clears the local UI list.</p>
       </div>
       <button type="button" onClick={onSeed}>Create random users</button>
       <button type="button" onClick={onClear} style={{ background: "none", color: "var(--text)", border: "1px solid var(--border)", boxShadow: "none" }}>Clear users</button>
@@ -282,54 +229,73 @@ function TxForm({ users, onSubmit, defaults }) {
   const [form, setForm] = useState({
     user_id: "",
     amount: "",
-    currency: "USD",
     merchant: "",
-    timestamp: defaults.timestamp,
-    payment_method: "online",
-    external_id: "",
+    category: "shopping_net",
+    transactionTimestamp: defaults.timestamp,
+    firstName: "",
+    lastName: "",
+    gender: "M",
+    dateOfBirth: "",
+    job: "",
+    street: "",
+    city: "",
+    state: "",
+    zipCode: "",
   });
+
+  const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  const buildTxPayload = (user_id, overrides = {}) => {
+    const user = users.find(u => u.id === user_id);
+    const location = pickRandom(SAMPLE_CITIES_STATES);
+    const ts = overrides.ts || new Date(Date.now() - Math.floor(Math.random() * 86400000)).toISOString();
+    return {
+      cardNumber: user?.card_number || user_id,
+      transactionTimestamp: ts,
+      unixTime: Math.floor(new Date(ts).getTime() / 1000),
+      amount: overrides.amount || Number((Math.random() * 400 + 5).toFixed(2)),
+      merchant: overrides.merchant || pickRandom(["Contoso Books", "Northwind Market", "Globex Gadgets", "Blue Bottle", "ACME Co", "AeroFly"]),
+      category: overrides.category || pickRandom(TX_CATEGORIES),
+      firstName: pickRandom(SAMPLE_FIRST_NAMES),
+      lastName: pickRandom(SAMPLE_LAST_NAMES),
+      gender: pickRandom(["M", "F"]),
+      dateOfBirth: `${1950 + Math.floor(Math.random() * 40)}-${String(Math.floor(Math.random() * 12) + 1).padStart(2, "0")}-${String(Math.floor(Math.random() * 28) + 1).padStart(2, "0")}`,
+      job: pickRandom(SAMPLE_JOBS),
+      street: pickRandom(SAMPLE_STREETS),
+      city: location.city,
+      state: location.state,
+      zipCode: location.zip,
+      cityPopulation: location.pop,
+      customerLatitude: location.lat,
+      customerLongitude: location.lng,
+      merchantLatitude: randUsLat(),
+      merchantLongitude: randUsLng(),
+      isFraud: overrides.isFraud || 0,
+      ...overrides.extra,
+    };
+  };
 
   const randomTx = () => {
     if (!users.length) return null;
-    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-    const user_id = form.user_id || pick(users).id;
-    const merchants = ["Contoso Books", "Northwind Market", "Globex Gadgets", "Blue Bottle", "ACME Co", "AeroFly"];
-    const methods = ["online", "card_present"];
-    const now = Date.now();
-    const ts = new Date(now - Math.floor(Math.random() * 1000 * 60 * 60 * 24)).toISOString();
-    return {
-      user_id,
-      payload: {
-        amount: Number((Math.random() * 400 + 5).toFixed(2)),
-        currency: "USD",
-        merchant: pick(merchants),
-        timestamp: ts,
-        payment_method: { type: pick(methods) },
-        external_id: Math.random() > 0.6 ? `ext-${uid().slice(0, 6)}` : undefined,
-      },
-    };
+    const user_id = form.user_id || pickRandom(users).id;
+    return { user_id, payload: buildTxPayload(user_id) };
   };
 
   const randomFraudTx = () => {
     if (!users.length) return null;
-    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-    const user_id = form.user_id || pick(users).id;
-    const now = Date.now();
-    const ts = new Date(now - Math.floor(Math.random() * 1000 * 60 * 90)).toISOString();
-    const amount = Number((Math.random() * 4500 + 4500).toFixed(2));
-    const merchant = pick(FRAUD_MERCHANTS);
-    const location = pick(FRAUD_LOCATIONS);
-
+    const user_id = form.user_id || pickRandom(users).id;
+    const location = pickRandom(FRAUD_LOCATIONS);
+    const merchant = `${pickRandom(FRAUD_MERCHANTS)} - ${location}`;
+    const ts = new Date(Date.now() - Math.floor(Math.random() * 5400000)).toISOString();
     return {
       user_id,
-      payload: {
-        amount,
-        currency: "USD",
-        merchant: `${merchant} - ${location}`,
-        timestamp: ts,
-        payment_method: { type: "online" },
-        external_id: `fraud-${uid().slice(0, 8)}`,
-      },
+      payload: buildTxPayload(user_id, {
+        amount: Number((Math.random() * 4500 + 4500).toFixed(2)),
+        merchant,
+        category: pickRandom(["shopping_net", "misc_net", "travel"]),
+        ts,
+        isFraud: 1,
+      }),
     };
   };
 
@@ -337,41 +303,103 @@ function TxForm({ users, onSubmit, defaults }) {
     if (!form.user_id && users.length) setForm((f) => ({ ...f, user_id: users[0].id }));
   }, [users]);
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!form.user_id) return;
+    const user = users.find(u => u.id === form.user_id);
+    const ts = new Date(form.transactionTimestamp).toISOString();
+    const location = SAMPLE_CITIES_STATES.find(l => l.city === form.city) || SAMPLE_CITIES_STATES[0];
+    onSubmit(form.user_id, {
+      cardNumber: user?.card_number || form.user_id,
+      transactionTimestamp: ts,
+      unixTime: Math.floor(new Date(ts).getTime() / 1000),
+      amount: Number(form.amount),
+      merchant: form.merchant,
+      category: form.category,
+      firstName: form.firstName,
+      lastName: form.lastName,
+      gender: form.gender,
+      dateOfBirth: form.dateOfBirth,
+      job: form.job,
+      street: form.street,
+      city: form.city,
+      state: form.state,
+      zipCode: form.zipCode,
+      cityPopulation: location.pop || 500000,
+      customerLatitude: location.lat || randUsLat(),
+      customerLongitude: location.lng || randUsLng(),
+      merchantLatitude: randUsLat(),
+      merchantLongitude: randUsLng(),
+      isFraud: 0,
+    });
+    setForm((f) => ({ ...f, amount: "", merchant: "" }));
+  };
+
   return (
-    <form onSubmit={(e) => {
-      e.preventDefault();
-      if (!form.user_id) return;
-      onSubmit(form.user_id, {
-        amount: Number(form.amount),
-        currency: form.currency || "USD",
-        merchant: form.merchant,
-        timestamp: new Date(form.timestamp).toISOString(),
-        payment_method: { type: form.payment_method },
-        external_id: form.external_id || undefined,
-      });
-      setForm({ ...form, amount: "", merchant: "", external_id: "" });
-    }}>
+    <form onSubmit={handleSubmit}>
       <label>User</label>
-      <select required value={form.user_id} onChange={(e) => setForm({ ...form, user_id: e.target.value })}>
+      <select required value={form.user_id} onChange={set("user_id")}>
         <option value="" disabled>Select user</option>
         {users.map((u) => <option key={u.id} value={u.id}>{u.phone_num} ({u.threshold ?? "?"})</option>)}
       </select>
+
       <label>Amount</label>
-      <input required type="number" min="0.01" step="0.01" placeholder="120.55" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
-      <label>Currency</label>
-      <input value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} />
+      <input required type="number" min="0.01" step="0.01" placeholder="120.55" value={form.amount} onChange={set("amount")} />
       <label>Merchant</label>
-      <input required placeholder="Contoso Books" value={form.merchant} onChange={(e) => setForm({ ...form, merchant: e.target.value })} />
-      <label>Timestamp</label>
-      <input required type="datetime-local" value={form.timestamp} onChange={(e) => setForm({ ...form, timestamp: e.target.value })} />
-      <label>Payment method</label>
-      <select value={form.payment_method} onChange={(e) => setForm({ ...form, payment_method: e.target.value })}>
-        <option value="online">Online</option>
-        <option value="card_present">Card present</option>
+      <input required placeholder="Contoso Books" value={form.merchant} onChange={set("merchant")} />
+      <label>Category</label>
+      <select value={form.category} onChange={set("category")}>
+        {TX_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
       </select>
-      <label>External ID (optional)</label>
-      <input placeholder="ext-123" value={form.external_id} onChange={(e) => setForm({ ...form, external_id: e.target.value })} />
-      <div className="row" style={{ gap: 8 }}>
+      <label>Timestamp</label>
+      <input required type="datetime-local" value={form.transactionTimestamp} onChange={set("transactionTimestamp")} />
+
+      <p className="muted small" style={{ marginTop: 12 }}>Customer info</p>
+      <div className="row">
+        <div style={{ flex: 1 }}>
+          <label>First name</label>
+          <input required placeholder="Jane" value={form.firstName} onChange={set("firstName")} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label>Last name</label>
+          <input required placeholder="Doe" value={form.lastName} onChange={set("lastName")} />
+        </div>
+      </div>
+      <div className="row">
+        <div style={{ flex: 1 }}>
+          <label>Gender</label>
+          <select value={form.gender} onChange={set("gender")}>
+            <option value="M">M</option>
+            <option value="F">F</option>
+          </select>
+        </div>
+        <div style={{ flex: 1 }}>
+          <label>Date of birth</label>
+          <input required type="date" value={form.dateOfBirth} onChange={set("dateOfBirth")} />
+        </div>
+      </div>
+      <label>Job</label>
+      <input required placeholder="Engineer" value={form.job} onChange={set("job")} />
+
+      <p className="muted small" style={{ marginTop: 12 }}>Address</p>
+      <label>Street</label>
+      <input required placeholder="123 Main St" value={form.street} onChange={set("street")} />
+      <div className="row">
+        <div style={{ flex: 2 }}>
+          <label>City</label>
+          <input required placeholder="Austin" value={form.city} onChange={set("city")} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label>State</label>
+          <input required placeholder="TX" maxLength={2} value={form.state} onChange={set("state")} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label>ZIP</label>
+          <input required placeholder="78701" value={form.zipCode} onChange={set("zipCode")} />
+        </div>
+      </div>
+
+      <div className="row" style={{ gap: 8, marginTop: 12 }}>
         <button type="submit">Send Transaction</button>
         <button type="button" onClick={() => {
           const tx = randomTx();
@@ -385,16 +413,7 @@ function TxForm({ users, onSubmit, defaults }) {
           onClick={() => {
             const tx = randomFraudTx();
             if (!tx) return;
-            setForm((prev) => ({
-              ...prev,
-              user_id: tx.user_id,
-              amount: String(tx.payload.amount),
-              currency: tx.payload.currency,
-              merchant: tx.payload.merchant,
-              timestamp: toLocalInput(new Date(tx.payload.timestamp)),
-              payment_method: tx.payload.payment_method.type,
-              external_id: tx.payload.external_id,
-            }));
+            setForm((prev) => ({ ...prev, user_id: tx.user_id, amount: String(tx.payload.amount), merchant: tx.payload.merchant }));
             onSubmit(tx.user_id, tx.payload);
           }}
         >

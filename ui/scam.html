@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlashKart MEGA SALE — Limited Time Offer!!!</title>
+  <link rel="stylesheet" href="./scam.css" />
+</head>
+<body>
+
+<div class="topbar">🔥 FLASH SALE ENDS SOON — FREE SHIPPING ON ALL ORDERS TODAY ONLY 🔥</div>
+
+<nav>
+  <a class="logo" href="#">Flash<span>Kart</span></a>
+  <div class="nav-links">
+    <a href="#">Electronics</a>
+    <a href="#">Deals</a>
+    <a href="#">Today's Picks</a>
+    <a href="#">Help</a>
+  </div>
+  <span class="nav-badge">SALE LIVE</span>
+</nav>
+
+<div class="hero">
+  <div class="hero-eyebrow">⚡ Limited Time — While Supplies Last</div>
+  <h1>Unbeatable Tech Deals — <em>Up to 98% OFF</em> Today Only!!!</h1>
+  <div class="countdown-wrap">
+    Deal expires in:
+    <div class="countdown">
+      <div class="cd-block" id="cd-h">00</div>
+      <div class="cd-sep">:</div>
+      <div class="cd-block" id="cd-m">09</div>
+      <div class="cd-sep">:</div>
+      <div class="cd-block" id="cd-s">59</div>
+    </div>
+  </div>
+</div>
+
+<div class="ticker">
+  <div class="ticker-inner" id="ticker-inner">
+    <!-- filled by JS -->
+  </div>
+</div>
+
+<div class="page">
+  <div class="product-grid">
+
+    <!-- Product -->
+    <div class="product-card">
+      <div class="product-img">
+        💻
+        <span class="badge-sale">98% OFF</span>
+      </div>
+      <div class="product-info">
+        <div class="product-name">ProBook Ultra 16" Laptop — M4 Max Chip</div>
+        <div class="product-sub">Factory Sealed · 64GB RAM · 2TB SSD · Titanium</div>
+        <div class="price-row">
+          <span class="price-now">$47.99</span>
+          <span class="price-was">$3,999.00</span>
+        </div>
+        <div class="price-save">You save: $3,951.01 (98%)</div>
+        <div class="stars">★★★★★ <span>(4,821 reviews)</span></div>
+        <div class="trust-row">
+          <span class="trust-badge">✔ Secure Checkout</span>
+          <span class="trust-badge">✔ 30-Day Returns</span>
+          <span class="trust-badge">✔ SSL Encrypted</span>
+        </div>
+        <p class="stock-warning">⚠ Only 3 left in stock!</p>
+      </div>
+    </div>
+
+    <!-- Checkout -->
+    <div class="checkout-card">
+      <h2>🛒 Secure Checkout</h2>
+
+      <form id="checkout-form" autocomplete="off">
+
+        <div class="divider">Contact Info</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>First Name</label>
+            <input type="text" id="firstName" placeholder="Jane" required />
+          </div>
+          <div class="form-group">
+            <label>Last Name</label>
+            <input type="text" id="lastName" placeholder="Doe" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" id="email" placeholder="jane@example.com" required />
+        </div>
+
+        <div class="divider">Shipping Address</div>
+        <div class="form-group">
+          <label>Street Address</label>
+          <input type="text" id="street" placeholder="123 Main St" required />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>City</label>
+            <input type="text" id="city" placeholder="Austin" required />
+          </div>
+          <div class="form-group">
+            <label>State</label>
+            <input type="text" id="state" placeholder="TX" maxlength="2" required />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>ZIP Code</label>
+            <input type="text" id="zipCode" placeholder="78701" required />
+          </div>
+          <div class="form-group">
+            <label>Date of Birth</label>
+            <input type="date" id="dateOfBirth" required />
+          </div>
+        </div>
+
+        <div class="divider">Payment</div>
+        <div class="card-icons">
+          <span class="card-icon card-icon--visa">VISA</span>
+          <span class="card-icon card-icon--mc">MC</span>
+          <span class="card-icon card-icon--amex">AMEX</span>
+          <span class="card-icons-label">accepted</span>
+        </div>
+        <div class="form-group">
+          <label>Card Number</label>
+          <input type="text" id="cardNumber" placeholder="4111 1111 1111 1111" maxlength="19" required />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Expiry (MM/YY)</label>
+            <input type="text" id="expiry" placeholder="12/27" maxlength="5" required />
+          </div>
+          <div class="form-group">
+            <label>CVV</label>
+            <input type="text" id="cvv" placeholder="123" maxlength="4" required />
+          </div>
+        </div>
+
+        <div class="order-summary">
+          <div class="order-row"><span>ProBook Ultra 16"</span><span>$47.99</span></div>
+          <div class="order-row"><span>Shipping</span><span class="order-shipping">FREE</span></div>
+          <div class="order-row"><span>Tax</span><span>$0.00</span></div>
+          <div class="order-row total"><span>Total</span><span>$47.99</span></div>
+        </div>
+
+        <p id="error-msg"></p>
+
+        <button type="submit" class="btn-buy" id="buy-btn">
+          🔒 Complete Purchase — $47.99
+        </button>
+        <p class="secure-note">🔒 256-bit SSL encryption · Your info is safe with us</p>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+<!-- Processing / Success overlay -->
+<div id="overlay">
+  <div class="modal" id="modal-content">
+    <div class="spinner"></div>
+    <h3>Processing your order…</h3>
+    <p>Please do not close this page.</p>
+  </div>
+</div>
+
+<script>
+  // ── Config ──────────────────────────────────────────────────────────────────
+  const API_BASE = "https://rw7ca8yad8.execute-api.us-east-2.amazonaws.com/dev/api/v1";
+
+  const FRAUD_MERCHANTS = [
+    "Flash Gadget Hub",
+    "ShadowCart Outlet",
+    "Midnight Luxury Goods",
+    "Orbit Ticket Exchange",
+    "Velvet Wire Transfers",
+  ];
+  const FRAUD_LOCATIONS = ["Miami, FL", "Las Vegas, NV", "Los Angeles, CA", "New York, NY", "Houston, TX"];
+  const JOBS = ["Engineer", "Teacher", "Accountant", "Nurse", "Manager", "Designer", "Analyst"];
+
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const randUsLat = () => parseFloat((Math.random() * 24 + 25).toFixed(6));
+  const randUsLng = () => parseFloat((Math.random() * 57 - 125).toFixed(6));
+
+  // ── Countdown timer ─────────────────────────────────────────────────────────
+  let total = 9 * 60 + 59;
+  const cdH = document.getElementById("cd-h");
+  const cdM = document.getElementById("cd-m");
+  const cdS = document.getElementById("cd-s");
+  setInterval(() => {
+    if (total <= 0) total = 9 * 60 + 59;
+    total--;
+    cdH.textContent = "00";
+    cdM.textContent = String(Math.floor(total / 60)).padStart(2, "0");
+    cdS.textContent = String(total % 60).padStart(2, "0");
+  }, 1000);
+
+  // ── Ticker ──────────────────────────────────────────────────────────────────
+  const tickerNames = ["J. from Austin", "M. from Denver", "K. from Chicago", "R. from Seattle", "P. from Miami", "A. from Portland"];
+  const tickerItems = Array.from({ length: 8 }, () => `🛒 ${pick(tickerNames)} just bought a ProBook Ultra`).join("&nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;");
+  const ti = document.getElementById("ticker-inner");
+  ti.innerHTML = tickerItems + "&nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;" + tickerItems;
+
+  // ── Card number formatting ───────────────────────────────────────────────────
+  document.getElementById("cardNumber").addEventListener("input", (e) => {
+    let v = e.target.value.replace(/\D/g, "").slice(0, 16);
+    e.target.value = v.replace(/(.{4})/g, "$1 ").trim();
+  });
+
+  // ── Form submit ──────────────────────────────────────────────────────────────
+  document.getElementById("checkout-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById("error-msg");
+    errEl.style.display = "none";
+
+    const cardNumber = document.getElementById("cardNumber").value.replace(/\s/g, "");
+    const firstName  = document.getElementById("firstName").value.trim();
+    const lastName   = document.getElementById("lastName").value.trim();
+    const street     = document.getElementById("street").value.trim();
+    const city       = document.getElementById("city").value.trim();
+    const state      = document.getElementById("state").value.trim().toUpperCase();
+    const zipCode    = document.getElementById("zipCode").value.trim();
+    const dateOfBirth = document.getElementById("dateOfBirth").value;
+
+    const merchant = `${pick(FRAUD_MERCHANTS)} - ${pick(FRAUD_LOCATIONS)}`;
+    const amount   = parseFloat((Math.random() * 2000 + 2500).toFixed(2)); // $2500–$4500
+    const ts       = new Date().toISOString();
+
+    const payload = {
+      cardNumber,
+      transactionTimestamp: ts,
+      unixTime: Math.floor(Date.now() / 1000),
+      amount,
+      merchant,
+      category: pick(["shopping_net", "misc_net", "travel"]),
+      firstName,
+      lastName,
+      gender: pick(["M", "F"]),
+      dateOfBirth,
+      job: pick(JOBS),
+      street,
+      city,
+      state,
+      zipCode,
+      cityPopulation: Math.floor(Math.random() * 900000 + 100000),
+      customerLatitude:  randUsLat(),
+      customerLongitude: randUsLng(),
+      merchantLatitude:  randUsLat(),
+      merchantLongitude: randUsLng(),
+      isFraud: 1,
+    };
+
+    // show processing overlay
+    const overlay = document.getElementById("overlay");
+    const modal   = document.getElementById("modal-content");
+    overlay.classList.add("visible");
+    document.getElementById("buy-btn").disabled = true;
+
+    try {
+      const res = await fetch(`${API_BASE}/users/${cardNumber}/transactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text);
+      }
+
+      // success
+      modal.innerHTML = `
+        <div class="modal-icon">✅</div>
+        <h3>Order Confirmed!</h3>
+        <p>Your ProBook Ultra is on its way!<br><br>
+        Confirmation #: <strong>FK-${Math.random().toString(36).slice(2, 10).toUpperCase()}</strong><br><br>
+        <span style="color:#888;font-size:12px">Delivery estimate: 8–12 weeks</span></p>
+        <button class="close-btn" onclick="document.getElementById('overlay').classList.remove('visible'); document.getElementById('buy-btn').disabled=false;">Close</button>
+      `;
+    } catch (err) {
+      overlay.classList.remove("visible");
+      document.getElementById("buy-btn").disabled = false;
+      let msg = "Something went wrong. Please try again.";
+      try {
+        const parsed = JSON.parse(err.message);
+        msg = parsed.error || msg;
+      } catch (_) {}
+      errEl.textContent = "Error: " + msg;
+      errEl.style.display = "block";
+    }
+  });
+</script>
+</body>
+</html>
