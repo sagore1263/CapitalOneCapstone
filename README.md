@@ -116,7 +116,7 @@ POST /webhook
 
 ### 3. WhatsApp Setup
 
-- Add your number to Meta sandbox thorugh our UI
+- Add your number to Meta sandbox through our UI
 - Webhook URL:
 https://<api-id> (secret).execute-api.us-east-2.amazonaws.com/dev/webhook
 
@@ -126,7 +126,7 @@ https://<api-id> (secret).execute-api.us-east-2.amazonaws.com/dev/webhook
 
 1. A user is created with phone number, card number, and threshold.
 2. A transaction is submitted via API.
-3. The system assigns a fraud score between 0 an 1.
+3. The system assigns a fraud score between 0 and 1.
 4. If fraud_score >= threshold, alert is triggered.
 5. WhatsApp message is sent.
 6. Pending alert stored in DynamoDB.
