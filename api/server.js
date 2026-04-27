@@ -112,7 +112,27 @@ app.get("/api/v1/users/:userId", (req, res) => {
 
 
 //TRANSACTION ENDPOINTS 
+// Endpoint 4: list transactions by user id
+app.get("/api/v1/users/:userId/transactions", (req, res) => {
+  const { userId } = req.params;
 
+  const user = usersById.get(userId);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  const txIds = txIdsByUserId.get(userId) ?? [];
+  const transactions = txIds
+    .map((txId) => txById.get(txId))
+    .filter(Boolean);
+
+  return res.json(transactions);
+});
+
+//Endpoint 5: Get transaction by transaction id (dev only)
+app.get("/api/v1/transactions/:txId", (req, res) => {
+  const tx = txById.get(req.params.txId);
+  if (!tx) return res.status(404).json({ error: "Transaction not found" });
+  return res.json(tx);
+});
 
 // Helpers for tx validation
 function isNonEmptyString(x) {
@@ -134,7 +154,7 @@ function isValidPaymentMethod(pm) {
 }
 
 
-//Endpoint 4: Post a transaction for specific user
+//Endpoint 6: Post a transaction for specific user
 app.post("/api/v1/users/:userId/transactions", (req, res) => {
   const { userId } = req.params;
 
@@ -243,12 +263,7 @@ app.post("/api/v1/users/:userId/transactions", (req, res) => {
 });
 
 
-//ENDPOINT 5: Dev only
-app.get("/api/v1/transactions/:txId", (req, res) => {
-  const tx = txById.get(req.params.txId);
-  if (!tx) return res.status(404).json({ error: "Transaction not found" });
-  return res.json(tx);
-});
+
 
 
 app.get("/health", (req, res) => res.json({ ok: true }));
